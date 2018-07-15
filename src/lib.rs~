@@ -1,0 +1,70 @@
+#[macro_use]
+extern crate nom;
+
+#[derive(PartialEq, Debug)]
+struct Contact<'a> {
+    alias: Option<&'a str>,
+    protocol: &'a str,
+    extension: &'a str,
+    domain: Option<&'a str>,
+    port: Option<&'a str>,
+}
+
+fn is_comma(c: char) -> bool {
+    c == ':'
+}
+
+fn is_space(c: char) -> bool {
+    c == ' '
+}
+
+fn is_digit(c: char) -> bool {
+    c.is_digit(10)
+}
+
+named!(pub crlf, tag!("\r\n"));
+named!(pub colon, tag!(":"));
+
+named!(
+    //Header, Alias, Protocol, Extension, Host, Port
+    parse_contact<&str, Contact>,
+    do_parse!(
+        header: tag_s!("Contact")
+            >> take_while_s!(is_space)
+            >> take(1) //Take comma after "Contact:"
+            >> take_while_s!(is_space)
+            >> alias: opt!(delimited!(tag!("\""),take_until!("\""),tag!("\"")))
+            >> take_while_s!(is_space)
+            >> opt!(tag!("<"))
+            >> protocol: take_until_and_consume!(":")
+            >> extension: take_until_and_consume!("@")
+            >> domain: opt!(alt!(take_until_and_consume!(":") | take_until_and_consume!("\r\n")))
+            >> port: opt!(take_while_s!(is_digit))
+            >> opt!(tag!(">"))
+            >> (Contact { alias, protocol, extension, domain, port})
+    )
+);
+
+pub fn just_test() {
+    println!(
+        "{:#?}",
+        parse_host(
+            "Contact: \"Alice Mark\" <sip:9989898919@127.0.0.1:35436>;tag=asdasdasdasd;some=nice\r\n"
+        )
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn it_works() {
+        //Contact: "Alice Mark" <sip:9989898919@127.0.0.1:35436>;tag=asdasdasdasd;some=nice (crlf)
+        //Contact: sip:85999684700@localhost (crlf)
+        //Contact: tel:8599684700 (crlf)
+        //Contact: sips:mark@localhost:3342 (crlf)
+        //Contact: <sip:8882@127.0.0.1> (crlf)
+        //Contact: sip:admin@localhost;tag=38298391 (crlf)
+        println!("{:?}", parse_host(b"127.0.0.1"));
+    }
+}

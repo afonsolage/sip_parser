@@ -1,0 +1,15 @@
+[package]
+name = "sip_coder"
+version = "0.1.0"
+authors = ["afonsolage"]
+
+[lib]
+name = "sip_coder"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sip_bin"
+path = "src/bin.rs"
+
+[dependencies]
+nom = "*"

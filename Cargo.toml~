@@ -1,0 +1,7 @@
+[package]
+name = "sip_coder"
+version = "0.1.0"
+authors = ["afonsolage"]
+
+[dependencies]
+nom = "*"
