@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(PartialEq, Debug)]
-struct Contact<'a> {
+pub struct Contact<'a> {
     alias: Option<&'a str>,
     protocol: &'a str,
     extension: &'a str,
@@ -11,7 +11,7 @@ struct Contact<'a> {
 }
 
 named!(
-    parse_contact<&str, Contact>,
+    pub parse_contact<&str, Contact>,
     do_parse!(
             alias: opt!(
                 alt_complete!(
@@ -40,10 +40,6 @@ named!(
             >> (Contact { alias, protocol, extension, domain, port, params: params.0})
     )
 );
-
-pub fn just_test() {
-    println!("{:#?}", parse_contact("tel:85999684700\r\n"));
-}
 
 #[cfg(test)]
 mod tests {
