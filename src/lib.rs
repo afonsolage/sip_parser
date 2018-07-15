@@ -20,35 +20,40 @@ pub fn to_str_default<'a>(s: &'a [u8]) -> &'a str {
 }
 
 #[derive(PartialEq, Debug)]
-pub struct SingleValueHeader<T> {
-    value: T,
+pub struct U32Header {
+    value: u32,
 }
 
 #[derive(PartialEq, Debug)]
-pub enum SipHeader<'a, T> {
+pub enum SipHeader<'a> {
     ContactValue(Contact<'a>),
-    SingleValue(SingleValueHeader<T>),
+    U32Value(U32Header),
 }
 
 named!(
-    pub parse_u32_header<SingleValueHeader<u32>>,
+    pub parse_u32_header<SipHeader>,
     do_parse!(
-        d: take_while!(is_digit)
-            >> (SingleValueHeader { value: str::from_utf8(d).unwrap_or_default().parse::<u32>().unwrap_or_default() })
+        take_while!(is_space)
+            >> d: take_while!(is_digit)
+            >> (SipHeader::U32Value(
+                U32Header {
+                    value: str::from_utf8(d).unwrap_or_default().parse::<u32>().unwrap_or_default()
+                }))
    )
 );
 
-//named!(
-//    pub parse_sip_header<&str, (&str, SipHeader)>,
-//    do_parse!(
-//        contact: switch!(take_until_and_consume!(":"),
-//                         "Contact" => parse_contact |
-//                         "Expires" => parse_u32_header)
-//        >> ("", contact)
-//    )
-//);
+named!(
+    pub parse_sip_header<SipHeader>,
+    do_parse!(
+        header: complete!(
+            switch!(take_until_and_consume!(":"),
+                    b"Contact" => call!(parse_contact) |
+                    b"Expires" => call!(parse_u32_header))
+            )
+        >> (header)
+    )
+);
 
 pub fn just_test() {
-    //println!("{:#?}", contact::parse_contact("tel:85999684700\r\n"));
-    println!("{:#?}", parse_u32_header(b"44\r\n"));
+    println!("{:#?}", parse_sip_header(b"Expires: 33\r\n"));
 }
