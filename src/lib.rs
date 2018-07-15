@@ -7,13 +7,9 @@ struct Contact<'a> {
     protocol: &'a str,
     extension: &'a str,
     domain: Option<&'a str>,
-    port: Option<&'a str>,
-    params: Vec<&'a str>,
+    port: Option<&'a str>, //TODO: Convert this to u16
+    params: Vec<&'a str>,  //TODO: Convert this to a tuple?
 }
-
-//fn is_colon(c: char) -> bool {
-//    c == ':'
-//}
 
 fn is_space(c: char) -> bool {
     c == ' '
@@ -60,6 +56,9 @@ pub fn just_test() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    //TODO: Add more tests? Maybe some variance of aliases, host and port with tags can give some error.
+
     #[test]
     fn contact_full() {
         assert_eq!(
