@@ -4,24 +4,12 @@ mod types;
 pub use self::types::*;
 
 use super::*;
-use std::str;
 
 #[derive(PartialEq, Debug)]
 pub enum SipHeader<'a> {
     ContactHeader(Contact<'a>),
-    Expires(U32Header),
+    Expires(U32Value),
 }
-
-named!(
-    pub parse_u32_header<U32Header>,
-    do_parse!(
-        take_while!(is_space)
-            >> d: take_while!(is_digit)
-            >> (U32Header {
-                    value: str::from_utf8(d).unwrap_or_default().parse::<u32>().unwrap_or_default()
-                })
-   )
-);
 
 named!(
     pub parse_contact_header<SipHeader>,
@@ -34,7 +22,7 @@ named!(
 named!(
     pub parse_expires_header<SipHeader>,
     do_parse!(
-        u32h: parse_u32_header
+        u32h: parse_u32
             >> (SipHeader::Expires(u32h))
     )
 );

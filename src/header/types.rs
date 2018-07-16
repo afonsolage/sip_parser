@@ -37,7 +37,7 @@ named!(
                         >> (p) //Return p and continue
                         
                 //While isn't the end
-                ), tag!("\r\n")) 
+                ), peek!(one_of!(",\r\n"))) 
             >> (Contact {
                     alias: alias.and_then(to_str),
                     protocol: to_str_default(protocol),
@@ -50,9 +50,21 @@ named!(
 );
 
 #[derive(PartialEq, Debug)]
-pub struct U32Header {
+pub struct U32Value {
     pub value: u32,
 }
+
+named!(
+    pub parse_u32<U32Value>,
+    do_parse!(
+        take_while!(is_space)
+            >> d: take_while!(is_digit)
+            >> (U32Value {
+                    value: str::from_utf8(d).unwrap_or_default().parse::<u32>().unwrap_or_default()
+                })
+   )
+);
+
 
 #[cfg(test)]
 mod tests {
@@ -62,13 +74,26 @@ mod tests {
     //Maybe some variance of aliases, host and port with tags can give some error.
 
     #[test]
+    fn u32value() {
+        assert_eq!(
+            parse_u32(
+                b"44\r\n"
+            ),
+            Ok((
+                b"\r\n" as &[u8],
+                U32Value { value: 44 }
+            ))    
+        );
+    }
+    
+    #[test]
     fn contact_full() {
         assert_eq!(
             parse_contact(
                 b"\"Alice Mark\" <sip:9989898919@127.0.0.1:35436>;tag=asdasdasdasd;some=nice\r\n"
             ),
             Ok((
-                b"" as &[u8],
+                b"\r\n" as &[u8],
                 Contact {
                     alias: Some("Alice Mark"),
                     protocol: "sip",
@@ -86,7 +111,7 @@ mod tests {
         assert_eq!(
             parse_contact(b"sip:85999684700@localhost\r\n"),
             Ok((
-                b"" as &[u8],
+                b"\r\n" as &[u8],
                 Contact {
                     alias: None,
                     protocol: "sip",
@@ -104,7 +129,7 @@ mod tests {
         assert_eq!(
             parse_contact(b"tel:+5585999680047\r\n"),
             Ok((
-                b"" as &[u8],
+                b"\r\n" as &[u8],
                 Contact {
                     alias: None,
                     protocol: "tel",
@@ -122,7 +147,7 @@ mod tests {
         assert_eq!(
             parse_contact(b"sips:mark@localhost:3342\r\n"),
             Ok((
-                b"" as &[u8],
+                b"\r\n" as &[u8],
                 Contact {
                     alias: None,
                     protocol: "sips",
@@ -140,7 +165,7 @@ mod tests {
         assert_eq!(
             parse_contact(b"<sip:8882@127.0.0.1>\r\n"),
             Ok((
-                b"" as &[u8],
+                b"\r\n" as &[u8],
                 Contact {
                     alias: Some(""),
                     protocol: "sip",
@@ -158,7 +183,7 @@ mod tests {
         assert_eq!(
             parse_contact(b"sip:admin@localhost;tag=38298391\r\n"),
             Ok((
-                b"" as &[u8],
+                b"\r\n" as &[u8],
                 Contact {
                     alias: None,
                     protocol: "sip",
