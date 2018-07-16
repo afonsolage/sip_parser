@@ -65,6 +65,19 @@ named!(
    )
 );
 
+#[derive(PartialEq, Debug)]
+pub struct StrValue<'a> {
+    pub value: &'a str,
+}
+
+named!(
+    pub parse_str<StrValue>,
+    do_parse!(
+        take_while!(is_space)
+            >> s: complete!(take_while!(is_str_char))
+            >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
+    )
+);
 
 #[cfg(test)]
 mod tests {
@@ -73,6 +86,34 @@ mod tests {
     //TODO: Add more tests?
     //Maybe some variance of aliases, host and port with tags can give some error.
 
+    //StrValue tests
+    #[test]
+    fn strvalue_comma() {
+        assert_eq!(
+            parse_str(
+                b"some,thing\r\n"
+            ),
+            Ok((
+                b",thing\r\n" as &[u8],
+                StrValue { value: "some" }
+            ))    
+        );
+    }
+    
+    #[test]
+    fn strvalue() {
+        assert_eq!(
+            parse_str(
+                b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.\r\n"
+            ),
+            Ok((
+                b"\r\n" as &[u8],
+                StrValue { value: "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA." }
+            ))    
+        );
+    }
+    
+    //U32Value tests
     #[test]
     fn u32value_invalid() {
         assert_eq!(
@@ -90,7 +131,7 @@ mod tests {
     fn u32value() {
         assert_eq!(
             parse_u32(
-                b"44\r\n"
+                b" 44\r\n"
             ),
             Ok((
                 b"\r\n" as &[u8],
@@ -98,7 +139,8 @@ mod tests {
             ))    
         );
     }
-    
+
+    //Contact tests
     #[test]
     fn contact_full() {
         assert_eq!(
