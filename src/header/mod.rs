@@ -18,9 +18,28 @@ pub enum SipHeader<'a> {
     Accept(StrValue<'a>),
     UserAgent(StrValue<'a>),
     Event(StrValue<'a>),
+    Allow(StrList<'a>),
+    AllowEvents(StrList<'a>),
+    Supported(StrList<'a>),
 }
 
 //Individual header parsing
+
+named!(
+    parse_supported_header<SipHeader>,
+    do_parse!(list: parse_str_list >> (SipHeader::Supported(list)))
+);
+
+named!(
+    parse_allow_header<SipHeader>,
+    do_parse!(list: parse_str_list >> (SipHeader::Allow(list)))
+);
+
+named!(
+    parse_allow_events_header<SipHeader>,
+    do_parse!(list: parse_str_list >> (SipHeader::AllowEvents(list)))
+);
+
 named!(
     parse_call_id_header<SipHeader>,
     do_parse!(s: parse_str >> (SipHeader::CallID(s)))
@@ -76,7 +95,7 @@ named!(
     do_parse!(u32h: parse_u32 >> (SipHeader::ContentLength(u32h)))
 );
 
-//Geberal header parsing
+//General header parsing
 named!(
     pub parse_sip_header<SipHeader>,
     do_parse!(
@@ -92,7 +111,10 @@ named!(
                     b"CSeq" => call!(parse_cseq_header) |
                     b"Accept" => call!(parse_accept_header) |
                     b"User-Agent" => call!(parse_user_agent_header) |
-                    b"Event" => call!(parse_event_header)
+                    b"Event" => call!(parse_event_header) |
+                    b"Allow" => call!(parse_allow_header) |
+                    b"Allow-Events" => call!(parse_allow_events_header) | 
+                    b"Supported" => call!(parse_supported_header) 
             ))
         >> (header)
     )
