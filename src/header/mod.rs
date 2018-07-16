@@ -13,9 +13,39 @@ pub enum SipHeader<'a> {
     Expires(U32Value),
     MaxForwards(U32Value),
     ContentLength(U32Value),
+    CallID(StrValue<'a>),
+    CSeq(StrValue<'a>),
+    Accept(StrValue<'a>),
+    UserAgent(StrValue<'a>),
+    Event(StrValue<'a>),
 }
 
 //Individual header parsing
+named!(
+    parse_call_id_header<SipHeader>,
+    do_parse!(s: parse_str >> (SipHeader::CallID(s)))
+);
+
+named!(
+    parse_cseq_header<SipHeader>,
+    do_parse!(s: parse_str >> (SipHeader::CSeq(s)))
+);
+
+named!(
+    parse_accept_header<SipHeader>,
+    do_parse!(s: parse_str >> (SipHeader::Accept(s)))
+);
+
+named!(
+    parse_user_agent_header<SipHeader>,
+    do_parse!(s: parse_str >> (SipHeader::UserAgent(s)))
+);
+
+named!(
+    parse_event_header<SipHeader>,
+    do_parse!(s: parse_str >> (SipHeader::Event(s)))
+);
+
 named!(
     parse_contact_header<SipHeader>,
     do_parse!(contact: parse_contact >> (SipHeader::Contact(contact)))
@@ -57,7 +87,12 @@ named!(
                     b"From" => call!(parse_from_header) |
                     b"Expires" => call!(parse_expires_header) |
                     b"Max-Forwards" => call!(parse_max_forwards_header) |
-                    b"Content-Length" => call!(parse_content_length_header)
+                    b"Content-Length" => call!(parse_content_length_header) |
+                    b"Call-ID" => call!(parse_call_id_header) |
+                    b"CSeq" => call!(parse_cseq_header) |
+                    b"Accept" => call!(parse_accept_header) |
+                    b"User-Agent" => call!(parse_user_agent_header) |
+                    b"Event" => call!(parse_event_header)
             ))
         >> (header)
     )
