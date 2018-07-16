@@ -7,40 +7,64 @@ use super::*;
 
 #[derive(PartialEq, Debug)]
 pub enum SipHeader<'a> {
-    ContactHeader(Contact<'a>),
+    Contact(ContactInfo<'a>),
+    To(ContactInfo<'a>),
+    From(ContactInfo<'a>),
     Expires(U32Value),
+    MaxForwards(U32Value),
+    ContentLength(U32Value),
 }
 
+//Individual header parsing
 named!(
-    pub parse_contact_header<SipHeader>,
-    do_parse!(
-        contact: parse_contact
-            >> (SipHeader::ContactHeader(contact))
-    )
+    parse_contact_header<SipHeader>,
+    do_parse!(contact: parse_contact >> (SipHeader::Contact(contact)))
 );
 
 named!(
-    pub parse_expires_header<SipHeader>,
-    do_parse!(
-        u32h: parse_u32
-            >> (SipHeader::Expires(u32h))
-    )
+    parse_to_header<SipHeader>,
+    do_parse!(contact: parse_contact >> (SipHeader::To(contact)))
 );
 
+named!(
+    parse_from_header<SipHeader>,
+    do_parse!(contact: parse_contact >> (SipHeader::From(contact)))
+);
+
+named!(
+    parse_expires_header<SipHeader>,
+    do_parse!(u32h: parse_u32 >> (SipHeader::Expires(u32h)))
+);
+
+named!(
+    parse_max_forwards_header<SipHeader>,
+    do_parse!(u32h: parse_u32 >> (SipHeader::MaxForwards(u32h)))
+);
+
+named!(
+    parse_content_length_header<SipHeader>,
+    do_parse!(u32h: parse_u32 >> (SipHeader::ContentLength(u32h)))
+);
+
+//Geberal header parsing
 named!(
     pub parse_sip_header<SipHeader>,
     do_parse!(
         header: complete!(
             switch!(take_until_and_consume!(":"),
                     b"Contact" => call!(parse_contact_header) |
-                    b"Expires" => call!(parse_expires_header))
-            )
+                    b"To" => call!(parse_to_header) |
+                    b"From" => call!(parse_from_header) |
+                    b"Expires" => call!(parse_expires_header) |
+                    b"Max-Forwards" => call!(parse_max_forwards_header) |
+                    b"Content-Length" => call!(parse_content_length_header)
+            ))
         >> (header)
     )
 );
 
 pub fn just_test() {
-    println!("{:#?}", parse_sip_header(b"Expires: 33\r\n"));
+    println!("{:#?}", parse_sip_header(b"Content-Length: 33\r\n"));
 }
 
 //SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0
