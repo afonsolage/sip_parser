@@ -70,12 +70,37 @@ pub struct StrValue<'a> {
     pub value: &'a str,
 }
 
+impl<'a> StrValue<'a> {
+    pub fn new(value: &str) -> StrValue {
+        StrValue{value}
+    }
+}
+
 named!(
     pub parse_str<StrValue>,
     do_parse!(
         take_while!(is_space)
             >> s: complete!(take_while!(is_str_char))
             >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
+    )
+);
+
+#[derive(PartialEq, Debug)]
+pub struct StrList<'a> {
+    pub list: Vec<StrValue<'a>>,
+}
+
+named!(
+    pub parse_str_list<StrList>,
+    do_parse!(
+        take_while!(is_space)
+            >> list: many_till!(
+                do_parse!(
+                    i: parse_str
+                        >> opt!(tag!(","))
+                        >> (i)
+                ), peek!(tag!("\r\n")))
+            >> ( StrList{ list: list.0 } )
     )
 );
 
@@ -86,6 +111,44 @@ mod tests {
     //TODO: Add more tests?
     //Maybe some variance of aliases, host and port with tags can give some error.
 
+    //StrList tests
+    #[test]
+    fn strlist_empty() {
+    	assert_eq!(
+    	        parse_str_list(
+    	            b"\r\n"
+    	        ),
+    	        Ok((
+    	            b"\r\n" as &[u8],
+    	            StrList { list: vec![] }
+    	        ))    
+    	);
+    }
+    
+    #[test]
+    fn strlist() {
+        assert_eq!(
+            parse_str_list(
+                b"INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\r\n"
+            ),
+            Ok((
+                b"\r\n" as &[u8],
+                StrList { list: vec![
+                    StrValue::new("INVITE"),
+                    StrValue::new("ACK"),
+                    StrValue::new("CANCEL"),
+                    StrValue::new("BYE"),
+                    StrValue::new("NOTIFY"),
+                    StrValue::new("REFER"),
+                    StrValue::new("MESSAGE"),
+                    StrValue::new("OPTIONS"),
+                    StrValue::new("INFO"),
+                    StrValue::new("SUBSCRIBE"),
+                ]}
+            ))    
+        );
+    }
+    
     //StrValue tests
     #[test]
     fn strvalue_comma() {
