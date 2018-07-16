@@ -57,3 +57,20 @@ named!(
 pub fn just_test() {
     println!("{:#?}", parse_sip_header(b"Expires: 33\r\n"));
 }
+
+//SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0
+//Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-
+//Max-Forwards: 70
+//Contact: <sip:3006@192.168.10.135:5060;transport=UDP>
+//To: <sip:3006@192.168.11.223;transport=UDP>
+//From: <sip:3006@192.168.11.223;transport=UDP>;tag=1f2b1e7e
+//Call-ID: MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.
+//CSeq: 1 SUBSCRIBE
+//Expires: 3600
+//Accept: application/simple-message-summary
+//Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE
+//Supported: replaces, norefersub, extended-refer, X-cisco-serviceuri
+//User-Agent: Zoiper for Windows 2.38 rev.16635
+//Event: message-summary
+//Allow-Events: presence, kpml
+//Content-Length: 0
