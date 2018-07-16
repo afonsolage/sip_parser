@@ -1,12 +1,10 @@
 use nom::*;
 
-use super::contact::*;
-use std::str;
+mod types;
+pub use self::types::*;
 
-#[derive(PartialEq, Debug)]
-pub struct U32Header {
-    value: u32,
-}
+use super::*;
+use std::str;
 
 #[derive(PartialEq, Debug)]
 pub enum SipHeader<'a> {

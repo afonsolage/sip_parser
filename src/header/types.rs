@@ -49,6 +49,11 @@ named!(
     )
 );
 
+#[derive(PartialEq, Debug)]
+pub struct U32Header {
+    pub value: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

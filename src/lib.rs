@@ -1,9 +1,6 @@
 #[macro_use]
 extern crate nom;
 
-mod contact;
-pub use contact::*;
-
 mod header;
 pub use header::*;
 
