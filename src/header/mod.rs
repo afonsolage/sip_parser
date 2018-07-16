@@ -23,6 +23,11 @@ pub enum SipHeader<'a> {
     Supported(StrList<'a>),
 }
 
+#[derive(PartialEq, Debug)]
+pub struct SipMessage<'a> {
+    headers: Vec<SipHeader<'a>>,
+}
+
 //Individual header parsing
 
 named!(
@@ -97,10 +102,10 @@ named!(
 
 //General header parsing
 named!(
-    pub parse_sip_header<SipHeader>,
+    parse_sip_header<SipHeader>,
     do_parse!(
-        header: complete!(
-            switch!(take_until_and_consume!(":"),
+        header:
+            complete!(switch!(take_until_and_consume!(":"),
                     b"Contact" => call!(parse_contact_header) |
                     b"To" => call!(parse_to_header) |
                     b"From" => call!(parse_from_header) |
@@ -115,13 +120,35 @@ named!(
                     b"Allow" => call!(parse_allow_header) |
                     b"Allow-Events" => call!(parse_allow_events_header) | 
                     b"Supported" => call!(parse_supported_header) 
-            ))
-        >> (header)
+            )) >> (header)
+    )
+);
+
+named!(
+    pub parse_sip_message<SipMessage>,
+    do_parse!(
+        headers: many_till!(
+            do_parse!(
+                i: parse_sip_header
+                    >> opt!(tag!("\r\n"))
+                    >> (i)
+            ), tag!("\r\n\r\n"))
+            >> (SipMessage{headers: headers.0})
     )
 );
 
 pub fn just_test() {
-    println!("{:#?}", parse_sip_header(b"Content-Length: 33\r\n"));
+    println!(
+        "{:#?}",
+        parse_sip_header(
+            //TODO: Separate Contact into two types: URI and Contact.
+            //      URI may contain params if it is enclosed with <>.
+            //      If there is no <>, all params bellongs to Contact.
+            b"\
+        Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n
+        \r\n\r\n"
+        )
+    );
 }
 
 //SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0
