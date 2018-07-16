@@ -12,7 +12,7 @@ pub struct Contact<'a> {
 }
 
 named!(
-    pub parse_contact<SipHeader>,
+    pub parse_contact<Contact>,
     do_parse!(
             alias: opt!(
                 alt_complete!(
@@ -38,14 +38,14 @@ named!(
                         
                 //While isn't the end
                 ), tag!("\r\n")) 
-            >> (SipHeader::ContactHeader(Contact {
+            >> (Contact {
                     alias: alias.and_then(to_str),
                     protocol: to_str_default(protocol),
                     extension: to_str_default(extension),
                     domain: domain.and_then(to_str),
                     port: port.and_then(to_str),
                     params: params.0.into_iter().filter_map(to_str).collect()
-                }))
+                })
     )
 );
 
@@ -64,14 +64,14 @@ mod tests {
             ),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactHeader(Contact {
+                Contact {
                     alias: Some("Alice Mark"),
                     protocol: "sip",
                     extension: "9989898919",
                     domain: Some("127.0.0.1"),
                     port: Some("35436"),
                     params: vec!["tag=asdasdasdasd", "some=nice"],
-                })
+                }
             ))
         );
     }
@@ -82,14 +82,14 @@ mod tests {
             parse_contact(b"sip:85999684700@localhost\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactHeader(Contact {
+                Contact {
                     alias: None,
                     protocol: "sip",
                     extension: "85999684700",
                     domain: Some("localhost"),
                     port: None,
                     params: vec![],
-                })
+                }
             ))
         );
     }
@@ -100,14 +100,14 @@ mod tests {
             parse_contact(b"tel:+5585999680047\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactHeader(Contact {
+                Contact {
                     alias: None,
                     protocol: "tel",
                     extension: "+5585999680047",
                     domain: None,
                     port: None,
                     params: vec![],
-                })
+                }
             ))
         );
     }
@@ -118,14 +118,14 @@ mod tests {
             parse_contact(b"sips:mark@localhost:3342\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactHeader(Contact {
+                Contact {
                     alias: None,
                     protocol: "sips",
                     extension: "mark",
                     domain: Some("localhost"),
                     port: Some("3342"),
                     params: vec![],
-                })
+                }
             ))
         );
     }
@@ -136,14 +136,14 @@ mod tests {
             parse_contact(b"<sip:8882@127.0.0.1>\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactHeader(Contact {
+                Contact {
                     alias: Some(""),
                     protocol: "sip",
                     extension: "8882",
                     domain: Some("127.0.0.1"),
                     port: None,
                     params: vec![],
-                })
+                }
             ))
         );
     }
@@ -154,14 +154,14 @@ mod tests {
             parse_contact(b"sip:admin@localhost;tag=38298391\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactHeader(Contact {
+                Contact {
                     alias: None,
                     protocol: "sip",
                     extension: "admin",
                     domain: Some("localhost"),
                     port: None,
                     params: vec!["tag=38298391"],
-                })
+                }
             ))
         );
     }
