@@ -38,7 +38,7 @@ named!(
                         
                 //While isn't the end
                 ), tag!("\r\n")) 
-            >> (SipHeader::ContactValue(Contact {
+            >> (SipHeader::ContactHeader(Contact {
                     alias: alias.and_then(to_str),
                     protocol: to_str_default(protocol),
                     extension: to_str_default(extension),
@@ -64,7 +64,7 @@ mod tests {
             ),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactValue(Contact {
+                SipHeader::ContactHeader(Contact {
                     alias: Some("Alice Mark"),
                     protocol: "sip",
                     extension: "9989898919",
@@ -82,7 +82,7 @@ mod tests {
             parse_contact(b"sip:85999684700@localhost\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactValue(Contact {
+                SipHeader::ContactHeader(Contact {
                     alias: None,
                     protocol: "sip",
                     extension: "85999684700",
@@ -100,7 +100,7 @@ mod tests {
             parse_contact(b"tel:+5585999680047\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactValue(Contact {
+                SipHeader::ContactHeader(Contact {
                     alias: None,
                     protocol: "tel",
                     extension: "+5585999680047",
@@ -118,7 +118,7 @@ mod tests {
             parse_contact(b"sips:mark@localhost:3342\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactValue(Contact {
+                SipHeader::ContactHeader(Contact {
                     alias: None,
                     protocol: "sips",
                     extension: "mark",
@@ -136,7 +136,7 @@ mod tests {
             parse_contact(b"<sip:8882@127.0.0.1>\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactValue(Contact {
+                SipHeader::ContactHeader(Contact {
                     alias: Some(""),
                     protocol: "sip",
                     extension: "8882",
@@ -154,7 +154,7 @@ mod tests {
             parse_contact(b"sip:admin@localhost;tag=38298391\r\n"),
             Ok((
                 b"" as &[u8],
-                SipHeader::ContactValue(Contact {
+                SipHeader::ContactHeader(Contact {
                     alias: None,
                     protocol: "sip",
                     extension: "admin",

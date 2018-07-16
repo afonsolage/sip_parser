@@ -26,7 +26,7 @@ pub struct U32Header {
 
 #[derive(PartialEq, Debug)]
 pub enum SipHeader<'a> {
-    ContactValue(Contact<'a>),
+    ContactHeader(Contact<'a>),
     U32Value(U32Header),
 }
 
