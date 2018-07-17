@@ -2,8 +2,7 @@ use super::*;
 use std::str;
 
 #[derive(PartialEq, Debug)]
-pub struct ContactInfo<'a> {
-    alias: Option<&'a str>,
+pub struct URI<'a> {
     protocol: &'a str,
     extension: &'a str,
     domain: Option<&'a str>,
@@ -11,10 +10,66 @@ pub struct ContactInfo<'a> {
     params: Vec<&'a str>,  //TODO: Convert this to a tuple?
 }
 
+//"Alisson Bae" <sip:asd@dsds:33;transport=333>;tag=aasdasd
+//<sip:ddd@aaa:1111;transport=UDP>
+//sip:ddd@aaa
+//tel:85999680047
+//"Daniel Peterson" <tel:85999680047;type=home>;id=321
+//<sip:3006@192.168.10.135:5060;transport=UDP>
+named!(
+    pub parse_uri_with_params<URI>,
+    do_parse!(
+        tag!("<")
+            >> protocol: take_until_and_consume!(":")
+            >> extension: take_until_either!("@>;\r\n")
+            >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
+            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
+            >> params: opt!(preceded!(tag!(";"), many_till!(
+                do_parse!(
+                    p: take_while!(is_param_char)
+                        >> opt!(tag!(";"))
+                        >> (p)
+                ), tag!(">"))))
+            >> opt!(tag!(">"))
+            >> (URI{
+                protocol: to_str_default(protocol),
+                extension: to_str_default(extension),
+                domain: domain.and_then(to_str),
+                port: port.and_then(to_str),
+                params: params.unwrap_or_default().0.into_iter().filter_map(to_str).collect()
+            })
+    )
+);
+
+named!(
+    pub parse_uri<URI>,
+    do_parse!(
+        protocol: take_until_and_consume!(":")
+            >> extension: take_until_either!("@>;\r\n")
+            >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
+            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
+            >> (URI {
+                protocol: to_str_default(protocol),
+                extension: to_str_default(extension),
+                domain: domain.and_then(to_str),
+                port: port.and_then(to_str),
+                params: vec![],
+            })
+    )
+);
+
+#[derive(PartialEq, Debug)]
+pub struct ContactInfo<'a> {
+    alias: Option<&'a str>,
+    uri: URI<'a>,
+    params: Vec<&'a str>,  //TODO: Convert this to a tuple?
+}
+
 named!(
     pub parse_contact<ContactInfo>,
     do_parse!(
-            alias: opt!(
+            take_while_s!(nom::is_space)
+            >> alias: opt!(
                 alt_complete!(
                     //Either get the quoted string
                     delimited!(tag!("\""),take_until!("\""),tag!("\"")) |
@@ -22,13 +77,7 @@ named!(
                     take_until!("<") 
                 ))
             >> take_while_s!(nom::is_space)
-            >> opt!(tag!("<"))
-            >> protocol: take_until_and_consume!(":")
-            >> extension: take_until_either!("@>;\r\n")
-            >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
-            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
-            >> opt!(tag!(">"))
-            >> opt!(tag!(";"))
+            >> uri: alt!(call!(parse_uri_with_params) | call!(parse_uri))
             >> params: many_till!(
                 //Do those parses
                 do_parse!(
@@ -40,10 +89,7 @@ named!(
                 ), peek!(one_of!(",\r\n"))) 
             >> (ContactInfo {
                     alias: alias.and_then(to_str),
-                    protocol: to_str_default(protocol),
-                    extension: to_str_default(extension),
-                    domain: domain.and_then(to_str),
-                    port: port.and_then(to_str),
+                    uri,
                     params: params.0.into_iter().filter_map(to_str).collect()
                 })
     )

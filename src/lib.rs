@@ -7,7 +7,7 @@ pub use header::*;
 use std::str;
 
 pub fn is_param_char(c: u8) -> bool {
-    c != b';' && c != b'\r' && c != b'\n'
+    c != b'>' && c != b';' && c != b'\r' && c != b'\n'
 }
 
 pub fn is_param_eof(c: u8) -> bool {
