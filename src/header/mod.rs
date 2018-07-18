@@ -138,32 +138,40 @@ named!(
 );
 
 pub fn just_test() {
-    println!(
-        "{:#?}",
-        parse_sip_header(
-            //TODO: Separate Contact into two types: URI and Contact.
-            //      URI may contain params if it is enclosed with <>.
-            //      If there is no <>, all params bellongs to Contact.
-            b"\
-        Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n
-        \r\n\r\n"
-        )
+    let res = parse_sip_message(
+        b"Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
+          Max-Forwards: 70\r\n\
+          Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
+          To: <sip:3006@192.168.11.223;transport=UDP>\r\n\
+          From: <sip:3006@192.168.11.223;transport=UDP>;tag=1f2b1e7e\r\n\
+          Call-ID: MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.\r\n\
+          CSeq: 1 SUBSCRIBE\r\n\
+          Expires: 3600\r\n\
+          Accept: application/simple-message-summary\r\n\
+          Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\r\n\
+          Supported: replaces, norefersub, extended-refer, X-cisco-serviceuri\r\n\
+          User-Agent: Zoiper for Windows 2.38 rev.16635\r\n\
+          Event: message-summary\r\n\
+          Allow-Events: presence, kpml\r\n\
+          Content-Length: 0\r\n\
+\r\n\r\n",
     );
+    match res {
+        Ok((remaining, header)) => println!(
+            "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
+            str::from_utf8(remaining).unwrap_or_default(),
+            header
+        ),
+        Err(e) => println!("{:#?}", e),
+    }
 }
 
 //SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0
 //Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-
-//Max-Forwards: 70
-//Contact: <sip:3006@192.168.10.135:5060;transport=UDP>
-//To: <sip:3006@192.168.11.223;transport=UDP>
-//From: <sip:3006@192.168.11.223;transport=UDP>;tag=1f2b1e7e
-//Call-ID: MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.
-//CSeq: 1 SUBSCRIBE
-//Expires: 3600
-//Accept: application/simple-message-summary
-//Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE
-//Supported: replaces, norefersub, extended-refer, X-cisco-serviceuri
-//User-Agent: Zoiper for Windows 2.38 rev.16635
-//Event: message-summary
-//Allow-Events: presence, kpml
-//Content-Length: 0
+//
+/*
+
+
+
+
+*/
