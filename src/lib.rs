@@ -19,7 +19,7 @@ pub fn is_str_char(c: u8) -> bool {
 }
 
 pub fn to_str<'a>(s: &'a [u8]) -> Option<&'a str> {
-    str::from_utf8(s).ok()
+    str::from_utf8(s).ok().filter(|s| !s.is_empty())
 }
 
 pub fn to_str_default<'a>(s: &'a [u8]) -> &'a str {

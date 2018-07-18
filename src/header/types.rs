@@ -10,12 +10,6 @@ pub struct URI<'a> {
     params: Vec<&'a str>,  //TODO: Convert this to a tuple?
 }
 
-//"Alisson Bae" <sip:asd@dsds:33;transport=333>;tag=aasdasd
-//<sip:ddd@aaa:1111;transport=UDP>
-//sip:ddd@aaa
-//tel:85999680047
-//"Daniel Peterson" <tel:85999680047;type=home>;id=321
-//<sip:3006@192.168.10.135:5060;transport=UDP>
 named!(
     pub parse_uri_with_params<URI>,
     do_parse!(
@@ -78,6 +72,7 @@ named!(
                 ))
             >> take_while_s!(nom::is_space)
             >> uri: alt!(call!(parse_uri_with_params) | call!(parse_uri))
+            >> opt!(tag!(";"))
             >> params: many_till!(
                 //Do those parses
                 do_parse!(
@@ -254,16 +249,19 @@ mod tests {
     fn contact_full() {
         assert_eq!(
             parse_contact(
-                b"\"Alice Mark\" <sip:9989898919@127.0.0.1:35436>;tag=asdasdasdasd;some=nice\r\n"
+                b"\"Alice Mark\" <sip:9989898919@127.0.0.1:35436;transport=UDP>;tag=asdasdasdasd;some=nice\r\n"
             ),
             Ok((
                 b"\r\n" as &[u8],
                 ContactInfo {
                     alias: Some("Alice Mark"),
-                    protocol: "sip",
-                    extension: "9989898919",
-                    domain: Some("127.0.0.1"),
-                    port: Some("35436"),
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "9989898919",
+                        domain: Some("127.0.0.1"),
+                        port: Some("35436"),
+                        params: vec!["transport=UDP"]
+                    },
                     params: vec!["tag=asdasdasdasd", "some=nice"],
                 }
             ))
@@ -278,10 +276,13 @@ mod tests {
                 b"\r\n" as &[u8],
                 ContactInfo {
                     alias: None,
-                    protocol: "sip",
-                    extension: "85999684700",
-                    domain: Some("localhost"),
-                    port: None,
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "85999684700",
+                        domain: Some("localhost"),
+                        port: None,
+                        params: vec![]
+                    },
                     params: vec![],
                 }
             ))
@@ -296,10 +297,13 @@ mod tests {
                 b"\r\n" as &[u8],
                 ContactInfo {
                     alias: None,
-                    protocol: "tel",
-                    extension: "+5585999680047",
-                    domain: None,
-                    port: None,
+                    uri: URI {
+                        protocol: "tel",
+                        extension: "+5585999680047",
+                        domain: None,
+                        port: None,
+                        params: vec![]
+                    },
                     params: vec![],
                 }
             ))
@@ -314,10 +318,13 @@ mod tests {
                 b"\r\n" as &[u8],
                 ContactInfo {
                     alias: None,
-                    protocol: "sips",
-                    extension: "mark",
-                    domain: Some("localhost"),
-                    port: Some("3342"),
+                    uri: URI {
+                        protocol: "sips",
+                        extension: "mark",
+                        domain: Some("localhost"),
+                        port: Some("3342"),
+                        params: vec![],
+                    },
                     params: vec![],
                 }
             ))
@@ -331,11 +338,14 @@ mod tests {
             Ok((
                 b"\r\n" as &[u8],
                 ContactInfo {
-                    alias: Some(""),
-                    protocol: "sip",
-                    extension: "8882",
-                    domain: Some("127.0.0.1"),
-                    port: None,
+                    alias: None,
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "8882",
+                        domain: Some("127.0.0.1"),
+                        port: None,
+                        params: vec![],
+                    },
                     params: vec![],
                 }
             ))
@@ -350,11 +360,140 @@ mod tests {
                 b"\r\n" as &[u8],
                 ContactInfo {
                     alias: None,
-                    protocol: "sip",
-                    extension: "admin",
-                    domain: Some("localhost"),
-                    port: None,
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "admin",
+                        domain: Some("localhost"),
+                        port: None,
+                        params: vec![]
+                    },
                     params: vec!["tag=38298391"],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn contact_uri_params() {
+        assert_eq!(
+            parse_contact(b"\"Alisson Bae\" <sip:asd@dsds:33;transport=333>;tag=aasdasd\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                ContactInfo {
+                    alias: Some("Alisson Bae"),
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "asd",
+                        domain: Some("dsds"),
+                        port: Some("33"),
+                        params: vec!["transport=333"],
+                    },
+                    params:vec!["tag=aasdasd"],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn contact_uri_params_only() {
+        assert_eq!(
+            parse_contact(b"<sip:ddd@aaa:1111;transport=UDP>\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                ContactInfo {
+                    alias: None,
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "ddd",
+                        domain: Some("aaa"),
+                        port: Some("1111"),
+                        params: vec!["transport=UDP"],
+                    },
+                    params:vec![],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn contact_no_alias_with_params() {
+        assert_eq!(
+            parse_contact(b"sip:afonso@lage;tag=d2d2\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                ContactInfo {
+                    alias: None,
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "afonso",
+                        domain: Some("lage"),
+                        port: None,
+                        params: vec![],
+                    },
+                    params:vec!["tag=d2d2"],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn contact_no_alias_w_port_n_params() {
+        assert_eq!(
+            parse_contact(b"sip:afonso@lage:443;tag=d2d2\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                ContactInfo {
+                    alias: None,
+                    uri: URI {
+                        protocol: "sip",
+                        extension: "afonso",
+                        domain: Some("lage"),
+                        port: Some("443"),
+                        params: vec![],
+                    },
+                    params:vec!["tag=d2d2"],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn contact_no_alias_no_host_w_params() {
+        assert_eq!(
+            parse_contact(b"tel:+5585999680047;tag=d2d2\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                ContactInfo {
+                    alias: None,
+                    uri: URI {
+                        protocol: "tel",
+                        extension: "+5585999680047",
+                        domain: None,
+                        port: None,
+                        params: vec![],
+                    },
+                    params:vec!["tag=d2d2"],
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn contact_no_alias_no_port_w_uri_params() {
+        assert_eq!(
+            parse_contact(b"<tel:190;type=emergency>\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                ContactInfo {
+                    alias: None,
+                    uri: URI {
+                        protocol: "tel",
+                        extension: "190",
+                        domain: None,
+                        port: None,
+                        params: vec!["type=emergency"],
+                    },
+                    params:vec![],
                 }
             ))
         );
