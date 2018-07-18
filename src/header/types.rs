@@ -195,11 +195,24 @@ mod tests {
     #[test]
     fn strvalue() {
         assert_eq!(
-            parse_str(b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.\r\n"),
+            parse_str(b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.;tag=some\r\n"),
             Ok((
-                b"\r\n" as &[u8],
+                b";tag=some\r\n" as &[u8],
                 StrValue {
                     value: "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA."
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn strvalue_sp() {
+        assert_eq!(
+            parse_str(b"MDhkMTcxYjYwNzEzMjhjZWUy ZDE0OTY5NGNmZjA3YzA.\r\n"),
+            Ok((
+                b" ZDE0OTY5NGNmZjA3YzA.\r\n" as &[u8],
+                StrValue {
+                    value: "MDhkMTcxYjYwNzEzMjhjZWUy"
                 }
             ))
         );
