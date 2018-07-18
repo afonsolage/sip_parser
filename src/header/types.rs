@@ -10,15 +10,18 @@ pub struct URI<'a> {
     params: Vec<&'a str>,  //TODO: Convert this to a tuple?
 }
 
-//named!(
-//    pub parse_params<Vec<&'a str>>,
-//    do_parse!(
-//        params: opt!(preceded!(tag!(";"), many_till!(
-//            do_parse!(
-//                
-//                ), peek!(is_not_param_char))))
-//    )
-//);        
+named!(
+    pub parse_params<Vec<&str>>,
+    do_parse!(
+        params: opt!(preceded!(tag!(";"), many_till!(
+            do_parse!(
+                p: take_while!(call!(is_not_reserved_char_except, b"="))
+                    >> opt!(tag!(";"))
+                    >> (p)
+            ), peek!(one_of!("()<>@,:;\\/[]?= \t\r\n")))))
+        >> (params.unwrap_or_default().0.into_iter().filter_map(to_str).collect())
+    )
+);
 
 named!(
     pub parse_uri_with_params<URI>,
@@ -28,19 +31,14 @@ named!(
             >> extension: take_until_either!("@>;\r\n")
             >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
             >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
-            >> params: opt!(preceded!(tag!(";"), many_till!(
-                do_parse!(
-                    p: take_while!(call!(is_not_reserved_char_except, b"="))
-                        >> opt!(tag!(";"))
-                        >> (p)
-                ), tag!(">"))))
-            >> opt!(tag!(">"))
+            >> params: call!(parse_params)
+            >> tag!(">")
             >> (URI{
                 protocol: to_str_default(protocol),
                 extension: to_str_default(extension),
                 domain: domain.and_then(to_str),
                 port: port.and_then(to_str),
-                params: params.unwrap_or_default().0.into_iter().filter_map(to_str).collect()
+                params,
             })
     )
 );
@@ -66,7 +64,7 @@ named!(
 pub struct ContactInfo<'a> {
     alias: Option<&'a str>,
     uri: URI<'a>,
-    params: Vec<&'a str>,  //TODO: Convert this to a tuple?
+    params: Vec<&'a str>, //TODO: Convert this to a tuple?
 }
 
 named!(
@@ -82,20 +80,11 @@ named!(
                 ))
             >> take_while_s!(nom::is_space)
             >> uri: alt!(call!(parse_uri_with_params) | call!(parse_uri))
-            >> opt!(tag!(";"))
-            >> params: many_till!(
-                //Do those parses
-                do_parse!(
-                    p: take_while!(call!(is_not_reserved_char_except, b"=")) //Save the content on "p"
-                        >> opt!(tag!(";")) //Remove skip semi-colon
-                        >> (p) //Return p and continue
-                        
-                //While isn't the end
-                ), peek!(one_of!(",\r\n"))) 
+            >> params: call!(parse_params)
             >> (ContactInfo {
                     alias: alias.and_then(to_str),
                     uri,
-                    params: params.0.into_iter().filter_map(to_str).collect()
+                    params,
                 })
     )
 );
@@ -123,7 +112,7 @@ pub struct StrValue<'a> {
 
 impl<'a> StrValue<'a> {
     pub fn new(value: &str) -> StrValue {
-        StrValue{value}
+        StrValue { value }
     }
 }
 
@@ -165,17 +154,12 @@ mod tests {
     //StrList tests
     #[test]
     fn strlist_empty() {
-    	assert_eq!(
-    	        parse_str_list(
-    	            b"\r\n"
-    	        ),
-    	        Ok((
-    	            b"\r\n" as &[u8],
-    	            StrList { list: vec![] }
-    	        ))    
-    	);
+        assert_eq!(
+            parse_str_list(b"\r\n"),
+            Ok((b"\r\n" as &[u8], StrList { list: vec![] }))
+        );
     }
-    
+
     #[test]
     fn strlist() {
         assert_eq!(
@@ -184,73 +168,60 @@ mod tests {
             ),
             Ok((
                 b"\r\n" as &[u8],
-                StrList { list: vec![
-                    StrValue::new("INVITE"),
-                    StrValue::new("ACK"),
-                    StrValue::new("CANCEL"),
-                    StrValue::new("BYE"),
-                    StrValue::new("NOTIFY"),
-                    StrValue::new("REFER"),
-                    StrValue::new("MESSAGE"),
-                    StrValue::new("OPTIONS"),
-                    StrValue::new("INFO"),
-                    StrValue::new("SUBSCRIBE"),
-                ]}
-            ))    
+                StrList {
+                    list: vec![
+                        StrValue::new("INVITE"),
+                        StrValue::new("ACK"),
+                        StrValue::new("CANCEL"),
+                        StrValue::new("BYE"),
+                        StrValue::new("NOTIFY"),
+                        StrValue::new("REFER"),
+                        StrValue::new("MESSAGE"),
+                        StrValue::new("OPTIONS"),
+                        StrValue::new("INFO"),
+                        StrValue::new("SUBSCRIBE"),
+                    ],
+                }
+            ))
         );
     }
-    
+
     //StrValue tests
     #[test]
     fn strvalue_comma() {
         assert_eq!(
-            parse_str(
-                b"some,thing\r\n"
-            ),
-            Ok((
-                b",thing\r\n" as &[u8],
-                StrValue { value: "some" }
-            ))    
+            parse_str(b"some,thing\r\n"),
+            Ok((b",thing\r\n" as &[u8], StrValue { value: "some" }))
         );
     }
-    
+
     #[test]
     fn strvalue() {
         assert_eq!(
-            parse_str(
-                b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.\r\n"
-            ),
+            parse_str(b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.\r\n"),
             Ok((
                 b"\r\n" as &[u8],
-                StrValue { value: "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA." }
-            ))    
+                StrValue {
+                    value: "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA."
+                }
+            ))
         );
     }
-    
+
     //U32Value tests
     #[test]
     fn u32value_invalid() {
         assert_eq!(
-            parse_u32(
-                b"-44\r\n"
-            ),
-            Ok((
-                b"-44\r\n" as &[u8],
-                U32Value { value: 0 }
-            ))    
+            parse_u32(b"-44\r\n"),
+            Ok((b"-44\r\n" as &[u8], U32Value { value: 0 }))
         );
     }
 
     #[test]
     fn u32value() {
         assert_eq!(
-            parse_u32(
-                b" 44\r\n"
-            ),
-            Ok((
-                b"\r\n" as &[u8],
-                U32Value { value: 44 }
-            ))    
+            parse_u32(b" 44\r\n"),
+            Ok((b"\r\n" as &[u8], U32Value { value: 44 }))
         );
     }
 
@@ -291,7 +262,7 @@ mod tests {
                         extension: "85999684700",
                         domain: Some("localhost"),
                         port: None,
-                        params: vec![]
+                        params: vec![],
                     },
                     params: vec![],
                 }
@@ -312,7 +283,7 @@ mod tests {
                         extension: "+5585999680047",
                         domain: None,
                         port: None,
-                        params: vec![]
+                        params: vec![],
                     },
                     params: vec![],
                 }
@@ -375,7 +346,7 @@ mod tests {
                         extension: "admin",
                         domain: Some("localhost"),
                         port: None,
-                        params: vec![]
+                        params: vec![],
                     },
                     params: vec!["tag=38298391"],
                 }
@@ -398,7 +369,7 @@ mod tests {
                         port: Some("33"),
                         params: vec!["transport=333"],
                     },
-                    params:vec!["tag=aasdasd"],
+                    params: vec!["tag=aasdasd"],
                 }
             ))
         );
@@ -419,7 +390,7 @@ mod tests {
                         port: Some("1111"),
                         params: vec!["transport=UDP"],
                     },
-                    params:vec![],
+                    params: vec![],
                 }
             ))
         );
@@ -440,7 +411,7 @@ mod tests {
                         port: None,
                         params: vec![],
                     },
-                    params:vec!["tag=d2d2"],
+                    params: vec!["tag=d2d2"],
                 }
             ))
         );
@@ -461,7 +432,7 @@ mod tests {
                         port: Some("443"),
                         params: vec![],
                     },
-                    params:vec!["tag=d2d2"],
+                    params: vec!["tag=d2d2"],
                 }
             ))
         );
@@ -482,7 +453,7 @@ mod tests {
                         port: None,
                         params: vec![],
                     },
-                    params:vec!["tag=d2d2"],
+                    params: vec!["tag=d2d2"],
                 }
             ))
         );
@@ -503,7 +474,7 @@ mod tests {
                         port: None,
                         params: vec!["type=emergency"],
                     },
-                    params:vec![],
+                    params: vec![],
                 }
             ))
         );
