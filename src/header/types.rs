@@ -10,6 +10,16 @@ pub struct URI<'a> {
     params: Vec<&'a str>,  //TODO: Convert this to a tuple?
 }
 
+//named!(
+//    pub parse_params<Vec<&'a str>>,
+//    do_parse!(
+//        params: opt!(preceded!(tag!(";"), many_till!(
+//            do_parse!(
+//                
+//                ), peek!(is_not_param_char))))
+//    )
+//);        
+
 named!(
     pub parse_uri_with_params<URI>,
     do_parse!(
@@ -20,7 +30,7 @@ named!(
             >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
             >> params: opt!(preceded!(tag!(";"), many_till!(
                 do_parse!(
-                    p: take_while!(is_param_char)
+                    p: take_while!(call!(is_not_reserved_char_except, b"="))
                         >> opt!(tag!(";"))
                         >> (p)
                 ), tag!(">"))))
@@ -40,7 +50,7 @@ named!(
     do_parse!(
         protocol: take_until_and_consume!(":")
             >> extension: take_until_either!("@>;\r\n")
-            >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
+            >> domain: opt!(preceded!(tag!("@"), take_till!(is_reserved_char)))
             >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
             >> (URI {
                 protocol: to_str_default(protocol),
@@ -76,7 +86,7 @@ named!(
             >> params: many_till!(
                 //Do those parses
                 do_parse!(
-                    p: take_while!(is_param_char) //Save the content on "p"
+                    p: take_while!(call!(is_not_reserved_char_except, b"=")) //Save the content on "p"
                         >> opt!(tag!(";")) //Remove skip semi-colon
                         >> (p) //Return p and continue
                         
@@ -99,7 +109,7 @@ named!(
     pub parse_u32<U32Value>,
     do_parse!(
         take_while!(is_space)
-            >> d: take_while!(is_digit)
+            >> d: take_while!(nom::is_digit)
             >> (U32Value {
                     value: str::from_utf8(d).unwrap_or_default().parse::<u32>().unwrap_or_default()
                 })
@@ -121,7 +131,7 @@ named!(
     pub parse_str<StrValue>,
     do_parse!(
         take_while!(is_space)
-            >> s: complete!(take_while!(is_str_char))
+            >> s: complete!(take_till!(is_reserved_char))
             >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
     )
 );
