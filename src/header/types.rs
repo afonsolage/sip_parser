@@ -148,9 +148,6 @@ named!(
 mod tests {
     use super::*;
 
-    //TODO: Add more tests?
-    //Maybe some variance of aliases, host and port with tags can give some error.
-
     //StrList tests
     #[test]
     fn strlist_empty() {

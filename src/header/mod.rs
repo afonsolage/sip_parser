@@ -162,7 +162,19 @@ pub fn just_test() {
             str::from_utf8(remaining).unwrap_or_default(),
             header
         ),
-        Err(e) => println!("{:#?}", e),
+        Err(e) => if let nom::Err::Error(c) = e {
+            match c {
+                nom::Context::Code(b, d) => {
+                    println!(
+                        "Failed to parse. Error at {0:#?}. Remaining:\r\n{1}",
+                        d,
+                        str::from_utf8(b).unwrap_or_default()
+                    );
+                }
+            }
+        } else {
+            println!("Unkown error")
+        },
     }
 }
 
