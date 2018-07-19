@@ -1,17 +1,11 @@
 use super::*;
 use std::str;
 
-#[derive(PartialEq, Debug)]
-pub struct URI<'a> {
-    protocol: &'a str,
-    extension: &'a str,
-    domain: Option<&'a str>,
-    port: Option<&'a str>, //TODO: Convert this to u16
-    params: Vec<&'a str>,  //TODO: Convert this to a tuple?
-}
+//TODO: Convert this to a tuple?
+type Params<'a> = Vec<&'a str>;
 
 named!(
-    pub parse_params<Vec<&str>>,
+    pub parse_params<Params>,
     do_parse!(
         params: opt!(preceded!(tag!(";"), many_till!(
             do_parse!(
@@ -22,6 +16,15 @@ named!(
         >> (params.unwrap_or_default().0.into_iter().filter_map(to_str).collect())
     )
 );
+
+#[derive(PartialEq, Debug)]
+pub struct URI<'a> {
+    protocol: &'a str,
+    extension: &'a str,
+    domain: Option<&'a str>,
+    port: Option<&'a str>, //TODO: Convert this to u16
+    params: Params<'a>,
+}
 
 named!(
     pub parse_uri_with_params<URI>,
@@ -64,7 +67,7 @@ named!(
 pub struct ContactInfo<'a> {
     alias: Option<&'a str>,
     uri: URI<'a>,
-    params: Vec<&'a str>, //TODO: Convert this to a tuple?
+    params: Params<'a>,
 }
 
 named!(
@@ -120,7 +123,7 @@ named!(
     pub parse_str<StrValue>,
     do_parse!(
         take_while!(is_space)
-            >> s: complete!(take_till!(is_reserved_char))
+            >> s: complete!(take_till!(call!(is_reserved_char_except, b"/-")))
             >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
     )
 );
@@ -144,9 +147,53 @@ named!(
     )
 );
 
+#[derive(PartialEq, Debug)]
+pub struct PairValue<'a> {
+    pub first: StrValue<'a>,
+    pub second: StrValue<'a>,
+    pub params: Params<'a>,
+}
+
+named!(
+    pub parse_sp_pair<PairValue>,
+    do_parse!(
+        take_while!(is_space)
+            >> first: parse_str
+            >> tag!(" ")
+            >> second: parse_str
+            >> params: parse_params
+            >> (PairValue{first, second, params})
+    )
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    //PairValue Tests
+    #[test]
+    fn pairvalue() {
+        assert_eq!(
+            parse_sp_pair(b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                PairValue {
+                    first: StrValue::new("SIP/2.0/UDP"),
+                    second: StrValue::new("192.168.10.135:5060"),
+                    params: vec!["branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-"],
+                }
+            ))
+        );
+    }
+
+    //Params tests
+    #[test]
+    fn params() {
+        assert_eq!(
+            parse_params(b";tag=a;another=afonso\r\n"),
+            Ok((b"\r\n" as &[u8], vec!["tag=a", "another=afonso"]))
+        );
+    }
 
     //StrList tests
     #[test]

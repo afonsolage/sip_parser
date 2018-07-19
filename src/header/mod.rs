@@ -138,7 +138,7 @@ named!(
 );
 
 pub fn just_test() {
-    let res = parse_sip_message(
+    /*    let res = parse_sip_message(
         b"Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
           Max-Forwards: 70\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
@@ -155,6 +155,9 @@ pub fn just_test() {
           Allow-Events: presence, kpml\r\n\
           Content-Length: 0\r\n\
 \r\n\r\n",
+);*/
+    let res = parse_sp_pair(
+        b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
     );
     match res {
         Ok((remaining, header)) => println!(
