@@ -123,7 +123,7 @@ named!(
     pub parse_str<StrValue>,
     do_parse!(
         take_while!(is_space)
-            >> s: complete!(take_till!(call!(is_reserved_char_except, b"/-")))
+            >> s: complete!(take_till!(call!(is_any_of, b";\r\n")))
             >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
     )
 );

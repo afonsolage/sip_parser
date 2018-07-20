@@ -14,7 +14,6 @@ pub enum SipHeader<'a> {
     MaxForwards(U32Value),
     ContentLength(U32Value),
     CallID(StrValue<'a>),
-    CSeq(StrValue<'a>),
     Accept(StrValue<'a>),
     UserAgent(StrValue<'a>),
     Event(StrValue<'a>),
@@ -26,6 +25,10 @@ pub enum SipHeader<'a> {
         protocol: &'a str,
         uri: URI<'a>,
         params: Params<'a>,
+    },
+    CSeq {
+        seq: u32,
+        header: &'a str,
     },
 }
 
@@ -54,11 +57,6 @@ named!(
 named!(
     parse_call_id_header<SipHeader>,
     do_parse!(s: parse_str >> (SipHeader::CallID(s)))
-);
-
-named!(
-    parse_cseq_header<SipHeader>,
-    do_parse!(s: parse_str >> (SipHeader::CSeq(s)))
 );
 
 named!(
@@ -121,26 +119,37 @@ named!(
     )
 );
 
+named!(
+    parse_cseq_header<SipHeader>,
+    do_parse!(
+        s: parse_u32 >> tag!(" ") >> h: parse_str >> (SipHeader::CSeq {
+            seq: s.value,
+            header: h.value,
+        })
+    )
+);
+
 //General header parsing
 named!(
     parse_sip_header<SipHeader>,
     do_parse!(
         header:
             complete!(switch!(take_until_and_consume!(":"),
-                    b"Contact" => call!(parse_contact_header) |
-                    b"To" => call!(parse_to_header) |
-                    b"From" => call!(parse_from_header) |
-                    b"Expires" => call!(parse_expires_header) |
-                    b"Max-Forwards" => call!(parse_max_forwards_header) |
-                    b"Content-Length" => call!(parse_content_length_header) |
-                    b"Call-ID" => call!(parse_call_id_header) |
-                    b"CSeq" => call!(parse_cseq_header) |
-                    b"Accept" => call!(parse_accept_header) |
-                    b"User-Agent" => call!(parse_user_agent_header) |
-                    b"Event" => call!(parse_event_header) |
-                    b"Allow" => call!(parse_allow_header) |
-                    b"Allow-Events" => call!(parse_allow_events_header) | 
-                    b"Supported" => call!(parse_supported_header) 
+                              b"Contact" => call!(parse_contact_header) |
+                              b"To" => call!(parse_to_header) |
+                              b"From" => call!(parse_from_header) |
+                              b"Expires" => call!(parse_expires_header) |
+                              b"Max-Forwards" => call!(parse_max_forwards_header) |
+                              b"Content-Length" => call!(parse_content_length_header) |
+                              b"Call-ID" => call!(parse_call_id_header) |
+                              b"CSeq" => call!(parse_cseq_header) |
+                              b"Accept" => call!(parse_accept_header) |
+                              b"User-Agent" => call!(parse_user_agent_header) |
+                              b"Event" => call!(parse_event_header) |
+                              b"Allow" => call!(parse_allow_header) |
+                              b"Allow-Events" => call!(parse_allow_events_header) | 
+                              b"Supported" => call!(parse_supported_header) |
+                              b"Via" => call!(parse_via_header)
             )) >> (header)
     )
 );
@@ -175,7 +184,7 @@ pub fn just_test() {
           Event: message-summary\r\n\
           Allow-Events: presence, kpml\r\n\
           Content-Length: 0\r\n\
-\r\n\r\n",
+          \r\n\r\n",
     );
     /*  let res = parse_via_header(
         b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",

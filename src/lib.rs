@@ -22,8 +22,8 @@ pub fn is_not_reserved_char(c: u8) -> bool {
     !is_reserved_char(c)
 }
 
-pub fn is_str_char(c: u8) -> bool {
-    c != b',' && c != b';' && c != b'\r' && c != b'\n'
+pub fn is_any_of(c: u8, s: &[u8]) -> bool {
+    s.contains(&c)
 }
 
 pub fn to_str<'a>(s: &'a [u8]) -> Option<&'a str> {
