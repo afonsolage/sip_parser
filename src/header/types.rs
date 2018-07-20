@@ -2,7 +2,7 @@ use super::*;
 use std::str;
 
 //TODO: Convert this to a tuple?
-type Params<'a> = Vec<&'a str>;
+pub type Params<'a> = Vec<&'a str>;
 
 named!(
     pub parse_params<Params>,
@@ -147,44 +147,28 @@ named!(
     )
 );
 
-#[derive(PartialEq, Debug)]
-pub struct PairValue<'a> {
-    pub first: StrValue<'a>,
-    pub second: StrValue<'a>,
-    pub params: Params<'a>,
-}
-
-named!(
-    pub parse_sp_pair<PairValue>,
-    do_parse!(
-        take_while!(is_space)
-            >> first: parse_str
-            >> tag!(" ")
-            >> second: parse_str
-            >> params: parse_params
-            >> (PairValue{first, second, params})
-    )
-);
+//#[derive(PartialEq, Debug)]
+//pub struct PairValue<'a> {
+//    pub first: StrValue<'a>,
+//    pub second: StrValue<'a>,
+//    pub params: Params<'a>,
+//}
+//
+//named!(
+//    pub parse_sp_pair<PairValue>,
+//    do_parse!(
+//        take_while!(is_space)
+//            >> first: parse_str
+//            >> tag!(" ")
+//            >> second: parse_str
+//            >> params: parse_params
+//            >> (PairValue{first, second, params})
+//    )
+//);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    //PairValue Tests
-    #[test]
-    fn pairvalue() {
-        assert_eq!(
-            parse_sp_pair(b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n"),
-            Ok((
-                b"\r\n" as &[u8],
-                PairValue {
-                    first: StrValue::new("SIP/2.0/UDP"),
-                    second: StrValue::new("192.168.10.135:5060"),
-                    params: vec!["branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-"],
-                }
-            ))
-        );
-    }
 
     //Params tests
     #[test]

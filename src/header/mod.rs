@@ -21,6 +21,12 @@ pub enum SipHeader<'a> {
     Allow(StrList<'a>),
     AllowEvents(StrList<'a>),
     Supported(StrList<'a>),
+
+    Via {
+        protocol: &'a str,
+        uri: URI<'a>,
+        params: Params<'a>,
+    },
 }
 
 #[derive(PartialEq, Debug)]
@@ -28,7 +34,7 @@ pub struct SipMessage<'a> {
     headers: Vec<SipHeader<'a>>,
 }
 
-//Individual header parsing
+//Simple header parsing
 
 named!(
     parse_supported_header<SipHeader>,
@@ -100,6 +106,21 @@ named!(
     do_parse!(u32h: parse_u32 >> (SipHeader::ContentLength(u32h)))
 );
 
+//Complex header parsing
+named!(
+    parse_via_header<SipHeader>,
+    do_parse!(
+        p: preceded!(tag!("SIP/2.0/"), take_till!(nom::is_space))
+            >> tag!(" ")
+            >> uri: call!(parse_uri)
+            >> params: call!(parse_params) >> (SipHeader::Via {
+            protocol: to_str_default(p),
+            uri,
+            params,
+        })
+    )
+);
+
 //General header parsing
 named!(
     parse_sip_header<SipHeader>,
@@ -138,7 +159,7 @@ named!(
 );
 
 pub fn just_test() {
-    /*    let res = parse_sip_message(
+    let res = parse_sip_message(
         b"Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
           Max-Forwards: 70\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
@@ -155,10 +176,10 @@ pub fn just_test() {
           Allow-Events: presence, kpml\r\n\
           Content-Length: 0\r\n\
 \r\n\r\n",
-);*/
-    let res = parse_sp_pair(
-        b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
     );
+    /*  let res = parse_via_header(
+        b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
+    );*/
     match res {
         Ok((remaining, header)) => println!(
             "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
