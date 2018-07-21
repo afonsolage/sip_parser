@@ -23,7 +23,7 @@ pub enum SipHeader<'a> {
 
     Via {
         protocol: &'a str,
-        uri: URI<'a>,
+        addr: SockAddr<'a>,
         params: Params<'a>,
     },
     CSeq {
@@ -83,6 +83,7 @@ impl<'a> SipMethod<'a> {
             "CANCEL" => SipMethod::Cancel { uri, version },
             "BYE" => SipMethod::Bye { uri, version },
             "OPTIONS" => SipMethod::Options { uri, version },
+            "SUBSCRIBE" => SipMethod::Subscribe { uri, version },
             _ => SipMethod::Unknown {
                 method,
                 uri,
@@ -169,12 +170,13 @@ named!(
 named!(
     parse_via_header<SipHeader>,
     do_parse!(
-        p: preceded!(tag!("SIP/2.0/"), take_till!(nom::is_space))
+        take_while!(nom::is_space)
+            >> p: preceded!(tag!("SIP/2.0/"), take_till!(nom::is_space))
             >> tag!(" ")
-            >> uri: call!(parse_uri_wo_params)
+            >> addr: call!(parse_sock_addr)
             >> params: call!(parse_params) >> (SipHeader::Via {
             protocol: to_str_default(p),
-            uri,
+            addr,
             params,
         })
     )
@@ -242,7 +244,7 @@ named!(
 );
 
 pub fn just_test() {
-    /*    let res = parse_sip_message(
+    let res = parse_sip_message(
         b"SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
           Max-Forwards: 70\r\n\
@@ -255,16 +257,16 @@ pub fn just_test() {
           Accept: application/simple-message-summary\r\n\
           Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\r\n\
           Supported: replaces, norefersub, extended-refer, X-cisco-serviceuri\r\n\
-          Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n\
           User-Agent: Zoiper for Windows 2.38 rev.16635\r\n\
           Event: message-summary\r\n\
           Allow-Events: presence, kpml\r\n\
           Content-Length: 0\r\n\
+          Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n\
           \r\n\r\n",
+);
+    /*    let res = parse_sip_header(
+        b"Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
     );*/
-    let res = parse_via_header(
-        b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
-    );
     match res {
         Ok((remaining, header)) => println!(
             "res:\r\n{0}\r\nInfo:\r\n{1:#?}",

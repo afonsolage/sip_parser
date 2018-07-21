@@ -221,6 +221,20 @@ mod tests {
         );
     }
 
+    #[test]
+    fn sockaddr_with_params() {
+        assert_eq!(
+            parse_sock_addr(b"192.168.0.1:4444;tag=some-thing\r\n"),
+            Ok((
+                b";tag=some-thing\r\n" as &[u8],
+                SockAddr {
+                    addr: "192.168.0.1",
+                    port: 4444
+                }
+            ))
+        );
+    }
+
     //Params tests
     #[test]
     fn params() {
