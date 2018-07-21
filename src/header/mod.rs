@@ -15,7 +15,7 @@ pub enum SipHeader<'a> {
     ContentLength(U32Value),
     CallID(StrValue<'a>),
     Accept(StrValue<'a>),
-    UserAgent(StrValue<'a>),
+    UserAgent(&'a str),
     Event(StrValue<'a>),
     Allow(StrList<'a>),
     AllowEvents(StrList<'a>),
@@ -127,7 +127,7 @@ named!(
 
 named!(
     parse_user_agent_header<SipHeader>,
-    do_parse!(s: parse_str >> (SipHeader::UserAgent(s)))
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::UserAgent(to_str(s).unwrap_or_default())))
 );
 
 named!(
@@ -171,7 +171,7 @@ named!(
     do_parse!(
         p: preceded!(tag!("SIP/2.0/"), take_till!(nom::is_space))
             >> tag!(" ")
-            >> uri: call!(parse_uri)
+            >> uri: call!(parse_uri_wo_params)
             >> params: call!(parse_params) >> (SipHeader::Via {
             protocol: to_str_default(p),
             uri,
@@ -208,21 +208,21 @@ named!(
     do_parse!(
         header:
             complete!(switch!(take_until_and_consume!(":"),
-                              b"Contact" => call!(parse_contact_header) |
-                              b"To" => call!(parse_to_header) |
-                              b"From" => call!(parse_from_header) |
-                              b"Expires" => call!(parse_expires_header) |
-                              b"Max-Forwards" => call!(parse_max_forwards_header) |
-                              b"Content-Length" => call!(parse_content_length_header) |
-                              b"Call-ID" => call!(parse_call_id_header) |
-                              b"CSeq" => call!(parse_cseq_header) |
-                              b"Accept" => call!(parse_accept_header) |
-                              b"User-Agent" => call!(parse_user_agent_header) |
-                              b"Event" => call!(parse_event_header) |
-                              b"Allow" => call!(parse_allow_header) |
-                              b"Allow-Events" => call!(parse_allow_events_header) | 
-                              b"Supported" => call!(parse_supported_header) |
-                              b"Via" => call!(parse_via_header)
+                              b"Contact" => call!(parse_contact_header)
+                              | b"To" => call!(parse_to_header)
+                              | b"From" => call!(parse_from_header)
+                              | b"Expires" => call!(parse_expires_header)
+                              | b"Max-Forwards" => call!(parse_max_forwards_header)
+                              | b"Content-Length" => call!(parse_content_length_header)
+                              | b"Call-ID" => call!(parse_call_id_header)
+                              | b"CSeq" => call!(parse_cseq_header)
+                              | b"Accept" => call!(parse_accept_header)
+                              | b"User-Agent" => call!(parse_user_agent_header)
+                              | b"Event" => call!(parse_event_header)
+                              | b"Allow" => call!(parse_allow_header)
+                              | b"Allow-Events" => call!(parse_allow_events_header)
+                              | b"Via" => call!(parse_via_header)
+                              | b"Supported" => call!(parse_supported_header)               
             )) >> (header)
     )
 );
@@ -242,7 +242,7 @@ named!(
 );
 
 pub fn just_test() {
-    let res = parse_sip_message(
+    /*    let res = parse_sip_message(
         b"SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
           Max-Forwards: 70\r\n\
@@ -255,15 +255,16 @@ pub fn just_test() {
           Accept: application/simple-message-summary\r\n\
           Allow: INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE\r\n\
           Supported: replaces, norefersub, extended-refer, X-cisco-serviceuri\r\n\
+          Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n\
           User-Agent: Zoiper for Windows 2.38 rev.16635\r\n\
           Event: message-summary\r\n\
           Allow-Events: presence, kpml\r\n\
           Content-Length: 0\r\n\
           \r\n\r\n",
-    );
-    /*  let res = parse_via_header(
-        b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
     );*/
+    let res = parse_via_header(
+        b"SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
+    );
     match res {
         Ok((remaining, header)) => println!(
             "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
@@ -287,7 +288,7 @@ pub fn just_test() {
 }
 
 //
-//Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-
+
 //
 /*
 

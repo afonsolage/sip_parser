@@ -18,6 +18,22 @@ named!(
 );
 
 #[derive(PartialEq, Debug)]
+pub struct SockAddr<'a> {
+    addr: &'a str,
+    port: u32,
+}
+
+named!(
+    pub parse_sock_addr<SockAddr>,
+    do_parse!(
+        s: take_until!(":")
+            >> tag!(":")
+            >> p: parse_u32
+            >> (SockAddr{addr: to_str_default(s), port: p.value})
+    )
+);
+
+#[derive(PartialEq, Debug)]
 pub struct URI<'a> {
     protocol: &'a str,
     extension: &'a str,
@@ -190,6 +206,21 @@ named!(
 mod tests {
     use super::*;
 
+    //SockAddr tests
+    #[test]
+    fn sockaddr() {
+        assert_eq!(
+            parse_sock_addr(b"192.168.0.1:4444\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                SockAddr {
+                    addr: "192.168.0.1",
+                    port: 4444
+                }
+            ))
+        );
+    }
+
     //Params tests
     #[test]
     fn params() {
@@ -197,6 +228,17 @@ mod tests {
             parse_params(b";tag=a;another=afonso\r\n"),
             Ok((b"\r\n" as &[u8], vec!["tag=a", "another=afonso"]))
         );
+    }
+
+    #[test]
+    fn params_big() {
+        assert_eq!(
+            parse_params(b";branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n"),
+            Ok((
+                b"\r\n" as &[u8],
+                vec!["branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-"]
+            ))
+        )
     }
 
     //StrList tests
