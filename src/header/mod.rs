@@ -244,6 +244,15 @@ named!(
 );
 
 pub fn just_test() {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    let f = File::open("test_data/messages.log").expect("Failed to open messages.log file");
+
+    for line in BufReader::new(f).lines() {
+        println!("{}", line.unwrap());
+    }
+    /*
     let res = parse_sip_message(
         b"SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
@@ -263,10 +272,7 @@ pub fn just_test() {
           Content-Length: 0\r\n\
           Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n\
           \r\n\r\n",
-);
-    /*    let res = parse_sip_header(
-        b"Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
-    );*/
+    );
     match res {
         Ok((remaining, header)) => println!(
             "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
@@ -286,15 +292,5 @@ pub fn just_test() {
         } else {
             println!("Unkown error")
         },
-    }
+    }*/
 }
-
-//
-
-//
-/*
-
-
-
-
-*/
