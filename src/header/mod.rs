@@ -33,7 +33,68 @@ pub enum SipHeader<'a> {
 }
 
 #[derive(PartialEq, Debug)]
+pub enum SipMethod<'a> {
+    Register {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Invite {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Subscribe {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Ack {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Cancel {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Bye {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Options {
+        uri: URI<'a>,
+        version: &'a str,
+    },
+    Response {
+        version: &'a str,
+        code: u32,
+        reason: &'a str,
+    },
+    Unknown {
+        method: &'a str,
+        uri: URI<'a>,
+        version: &'a str,
+    },
+}
+
+impl<'a> SipMethod<'a> {
+    fn new_req(method: &'a str, uri: URI<'a>, version: &'a str) -> SipMethod<'a> {
+        match method {
+            "REGISTER" => SipMethod::Register { uri, version },
+            "INVITE" => SipMethod::Invite { uri, version },
+            "ACK" => SipMethod::Ack { uri, version },
+            "CANCEL" => SipMethod::Cancel { uri, version },
+            "BYE" => SipMethod::Bye { uri, version },
+            "OPTIONS" => SipMethod::Options { uri, version },
+            _ => SipMethod::Unknown {
+                method,
+                uri,
+                version,
+            },
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
 pub struct SipMessage<'a> {
+    method: SipMethod<'a>,
     headers: Vec<SipHeader<'a>>,
 }
 
@@ -129,6 +190,18 @@ named!(
     )
 );
 
+//Method parsing
+named!(
+    parse_sip_request<SipMethod>,
+    do_parse!(
+        m: complete!(take_until_and_consume!(" "))
+            >> uri: parse_uri
+            >> v: parse_str
+            >> tag!("\r\n")
+            >> (SipMethod::new_req(to_str(m).unwrap_or_default(), uri, v.value))
+    )
+);
+
 //General header parsing
 named!(
     parse_sip_header<SipHeader>,
@@ -157,19 +230,21 @@ named!(
 named!(
     pub parse_sip_message<SipMessage>,
     do_parse!(
-        headers: many_till!(
+        method: parse_sip_request
+        >> headers: many_till!(
             do_parse!(
                 i: parse_sip_header
                     >> opt!(tag!("\r\n"))
                     >> (i)
             ), tag!("\r\n\r\n"))
-            >> (SipMessage{headers: headers.0})
+            >> (SipMessage{method, headers: headers.0})
     )
 );
 
 pub fn just_test() {
     let res = parse_sip_message(
-        b"Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
+        b"SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0\r\n\
+          Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
           Max-Forwards: 70\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
           To: <sip:3006@192.168.11.223;transport=UDP>\r\n\
@@ -211,7 +286,7 @@ pub fn just_test() {
     }
 }
 
-//SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0
+//
 //Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-
 //
 /*

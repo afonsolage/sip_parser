@@ -47,7 +47,7 @@ named!(
 );
 
 named!(
-    pub parse_uri<URI>,
+    pub parse_uri_wo_params<URI>,
     do_parse!(
         protocol: take_until_and_consume!(":")
             >> extension: take_until_either!("@>;\r\n")
@@ -59,6 +59,26 @@ named!(
                 domain: domain.and_then(to_str),
                 port: port.and_then(to_str),
                 params: vec![],
+            })
+    )
+);
+
+named!(
+    pub parse_uri<URI>,
+    do_parse!(
+        opt!(tag!("<"))
+            >> protocol: take_until_and_consume!(":")
+            >> extension: take_until_either!("@>;\r\n")
+            >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
+            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
+            >> params: call!(parse_params)
+            >> opt!(tag!(">"))
+            >> (URI{
+                protocol: to_str_default(protocol),
+                extension: to_str_default(extension),
+                domain: domain.and_then(to_str),
+                port: port.and_then(to_str),
+                params,
             })
     )
 );
@@ -82,7 +102,7 @@ named!(
                     take_until!("<") 
                 ))
             >> take_while_s!(nom::is_space)
-            >> uri: alt!(call!(parse_uri_with_params) | call!(parse_uri))
+            >> uri: alt!(call!(parse_uri_with_params) | call!(parse_uri_wo_params))
             >> params: call!(parse_params)
             >> (ContactInfo {
                     alias: alias.and_then(to_str),
@@ -123,7 +143,7 @@ named!(
     pub parse_str<StrValue>,
     do_parse!(
         take_while!(is_space)
-            >> s: complete!(take_till!(call!(is_any_of, b";\r\n")))
+            >> s: complete!(take_till!(call!(is_any_of, b" ,;\r\n")))
             >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
     )
 );
