@@ -245,14 +245,65 @@ named!(
 
 pub fn just_test() {
     use std::fs::File;
-    use std::io::{BufRead, BufReader};
+    use std::io::{BufReader, Read};
 
     let f = File::open("test_data/messages.log").expect("Failed to open messages.log file");
+    let bytes = BufReader::new(f).bytes();
+    let mut buffer = vec![0u8; 1024];
 
-    for line in BufReader::new(f).lines() {
-        println!("{}", line.unwrap());
+    let mut i = 0;
+    for byte in bytes {
+        buffer[i] = byte.unwrap();
+        i += 1;
+
+        if i == 2 && buffer[0] == b'\r' && buffer[1] == b'\n' {
+            i = 0;
+        }
+
+        if i > 6
+            && buffer[i - 6] == b'\r'
+            && buffer[i - 5] == b'\n'
+            && buffer[i - 4] == b'\r'
+            && buffer[i - 3] == b'\n'
+            && buffer[i - 2] == b'\r'
+            && buffer[i - 1] == b'\n'
+        {
+            //            println!("Testing data:\r\n{}", to_str_dbg(&buffer[0..i]));
+            test_parse(&buffer[0..i]);
+            i = 0;
+        }
     }
-    /*
+}
+
+fn test_parse(data: &[u8]) {
+    let res = parse_sip_message(data);
+    match res {
+        Ok(_) => {
+            /*
+println!(
+            "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
+            str::from_utf8(remaining).unwrap_or_default(),
+            header
+        ),
+   */
+        }
+        Err(e) => if let nom::Err::Error(c) = e {
+            match c {
+                nom::Context::Code(b, d) => {
+                    println!(
+                        "#################### Failed to parse. ###################\r\nError at {0:#?}. Remaining:\r\n{1}Original:\r\n{2}",
+                        d,
+                        to_str_dbg(b),
+                        to_str_dbg(data),
+                    );
+                }
+            }
+        } else {
+            println!("Unkown error")
+        },
+    }
+}
+/*
     let res = parse_sip_message(
         b"SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
@@ -293,4 +344,3 @@ pub fn just_test() {
             println!("Unkown error")
         },
     }*/
-}

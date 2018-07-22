@@ -33,3 +33,7 @@ pub fn to_str<'a>(s: &'a [u8]) -> Option<&'a str> {
 pub fn to_str_default<'a>(s: &'a [u8]) -> &'a str {
     to_str(s).unwrap_or_default()
 }
+
+pub fn to_str_dbg<'a>(data: &'a [u8]) -> String {
+    to_str_default(data).replace("\r\n", "\\r\\n\r\n")
+}
