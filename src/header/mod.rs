@@ -10,24 +10,24 @@ pub enum SipHeader<'a> {
     Contact(ContactInfo<'a>),
     To(ContactInfo<'a>),
     From(ContactInfo<'a>),
-    Expires(U32Value),
-    MaxForwards(U32Value),
-    ContentLength(U32Value),
-    CallID(StrValue<'a>),
-    Accept(StrValue<'a>),
+    Expires(u32),
+    MaxForwards(u32),
+    ContentLength(u32),
+    CallID(&'a str),
+    Accept(&'a str),
     UserAgent(&'a str),
-    Event(StrValue<'a>),
-    Allow(StrList<'a>),
-    AllowEvents(StrList<'a>),
-    Supported(StrList<'a>),
-    Authorization(StrList<'a>),
-    WWWAuthenticate(StrList<'a>),
+    Event(&'a str),
+    Allow(Vec<&'a str>),
+    AllowEvents(Vec<&'a str>),
+    Supported(Vec<&'a str>),
+    Authorization(Vec<&'a str>),
+    WWWAuthenticate(Vec<&'a str>),
     SessionID(&'a str),
     Server(&'a str),
     Date(&'a str),
     ContentType(&'a str),
     SessionExpires(&'a str),
-    Require(StrList<'a>),
+    Require(Vec<&'a str>),
     AcceptLanguage(&'a str),
     MinSE(&'a str),
 
@@ -235,12 +235,7 @@ named!(
 
 named!(
     parse_cseq_header<SipHeader>,
-    do_parse!(
-        s: parse_u32 >> tag!(" ") >> h: parse_str >> (SipHeader::CSeq {
-            seq: s.value,
-            header: h.value,
-        })
-    )
+    do_parse!(s: parse_u32 >> tag!(" ") >> h: parse_str >> (SipHeader::CSeq { seq: s, header: h }))
 );
 
 named!(
@@ -271,7 +266,7 @@ named!(
             >> uri: parse_uri
             >> v: parse_str
             >> tag!("\r\n")
-            >> (SipMethod::new_req(to_str(m).unwrap_or_default(), uri, v.value))
+            >> (SipMethod::new_req(to_str(m).unwrap_or_default(), uri, v))
     )
 );
 

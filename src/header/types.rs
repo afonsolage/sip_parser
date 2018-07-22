@@ -28,8 +28,8 @@ named!(
     do_parse!(
         s: take_until!(":")
             >> tag!(":")
-            >> p: parse_u32
-            >> (SockAddr{addr: to_str_default(s), port: p.value})
+            >> port: parse_u32
+            >> (SockAddr{addr: to_str_default(s), port})
     )
 );
 
@@ -128,49 +128,40 @@ named!(
     )
 );
 
-#[derive(PartialEq, Debug)]
-pub struct U32Value {
-    pub value: u32,
-}
-
 named!(
-    pub parse_u32<U32Value>,
+    pub parse_u32<u32>,
     do_parse!(
         take_while!(is_space)
             >> d: take_while!(nom::is_digit)
-            >> (U32Value {
-                    value: str::from_utf8(d).unwrap_or_default().parse::<u32>().unwrap_or_default()
-                })
+            >> (to_str_default(d).parse::<u32>().unwrap_or_default())
    )
 );
 
-#[derive(PartialEq, Debug)]
-pub struct StrValue<'a> {
-    pub value: &'a str,
-}
-
-impl<'a> StrValue<'a> {
-    pub fn new(value: &str) -> StrValue {
-        StrValue { value }
-    }
-}
-
 named!(
-    pub parse_str<StrValue>,
+    pub parse_str<&str>,
     do_parse!(
         take_while!(is_space)
-            >> s: complete!(take_till!(call!(is_any_of, b" ,;\r\n")))
-            >> (StrValue { value: str::from_utf8(s).unwrap_or_default() })
+            >> s: complete!(
+                alt_complete!(
+                    delimited!(tag!("\""),take_until!("\""),tag!("\"")) |
+                    take_till!(call!(is_any_of, b" ,;\r\n"))
+                )
+           )
+            >> (to_str_default(s))
     )
 );
 
-#[derive(PartialEq, Debug)]
-pub struct StrList<'a> {
-    pub list: Vec<StrValue<'a>>,
-}
+named!(
+    pub parse_str_line<&str>,
+    do_parse!(
+        take_while!(is_space)
+            >> s: take_until!("\r\n")
+            >> (to_str_default(s))
+    )
+);
 
 named!(
-    pub parse_str_list<StrList>,
+    pub parse_str_list<Vec<&str>>,
     do_parse!(
         take_while!(is_space)
             >> list: many_till!(
@@ -179,7 +170,7 @@ named!(
                         >> opt!(tag!(","))
                         >> (i)
                 ), peek!(tag!("\r\n")))
-            >> ( StrList{ list: list.0 } )
+            >> ( list.0 )
     )
 );
 
@@ -258,10 +249,7 @@ mod tests {
     //StrList tests
     #[test]
     fn strlist_empty() {
-        assert_eq!(
-            parse_str_list(b"\r\n"),
-            Ok((b"\r\n" as &[u8], StrList { list: vec![] }))
-        );
+        assert_eq!(parse_str_list(b"\r\n"), Ok((b"\r\n" as &[u8], vec![])));
     }
 
     #[test]
@@ -272,20 +260,18 @@ mod tests {
             ),
             Ok((
                 b"\r\n" as &[u8],
-                StrList {
-                    list: vec![
-                        StrValue::new("INVITE"),
-                        StrValue::new("ACK"),
-                        StrValue::new("CANCEL"),
-                        StrValue::new("BYE"),
-                        StrValue::new("NOTIFY"),
-                        StrValue::new("REFER"),
-                        StrValue::new("MESSAGE"),
-                        StrValue::new("OPTIONS"),
-                        StrValue::new("INFO"),
-                        StrValue::new("SUBSCRIBE"),
-                    ],
-                }
+                vec![
+                    "INVITE",
+                    "ACK",
+                    "CANCEL",
+                    "BYE",
+                    "NOTIFY",
+                    "REFER",
+                    "MESSAGE",
+                    "OPTIONS",
+                    "INFO",
+                    "SUBSCRIBE",
+                ],
             ))
         );
     }
@@ -295,7 +281,7 @@ mod tests {
     fn strvalue_comma() {
         assert_eq!(
             parse_str(b"some,thing\r\n"),
-            Ok((b",thing\r\n" as &[u8], StrValue { value: "some" }))
+            Ok((b",thing\r\n" as &[u8], "some"))
         );
     }
 
@@ -305,9 +291,7 @@ mod tests {
             parse_str(b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.;tag=some\r\n"),
             Ok((
                 b";tag=some\r\n" as &[u8],
-                StrValue {
-                    value: "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA."
-                }
+                "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA."
             ))
         );
     }
@@ -318,9 +302,7 @@ mod tests {
             parse_str(b"MDhkMTcxYjYwNzEzMjhjZWUy ZDE0OTY5NGNmZjA3YzA.\r\n"),
             Ok((
                 b" ZDE0OTY5NGNmZjA3YzA.\r\n" as &[u8],
-                StrValue {
-                    value: "MDhkMTcxYjYwNzEzMjhjZWUy"
-                }
+                "MDhkMTcxYjYwNzEzMjhjZWUy"
             ))
         );
     }
@@ -328,18 +310,12 @@ mod tests {
     //U32Value tests
     #[test]
     fn u32value_invalid() {
-        assert_eq!(
-            parse_u32(b"-44\r\n"),
-            Ok((b"-44\r\n" as &[u8], U32Value { value: 0 }))
-        );
+        assert_eq!(parse_u32(b"-44\r\n"), Ok((b"-44\r\n" as &[u8], 0)));
     }
 
     #[test]
     fn u32value() {
-        assert_eq!(
-            parse_u32(b" 44\r\n"),
-            Ok((b"\r\n" as &[u8], U32Value { value: 44 }))
-        );
+        assert_eq!(parse_u32(b" 44\r\n"), Ok((b"\r\n" as &[u8], 44)));
     }
 
     //Contact tests
