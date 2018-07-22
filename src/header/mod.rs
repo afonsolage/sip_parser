@@ -107,6 +107,7 @@ impl<'a> SipMethod<'a> {
 pub struct SipMessage<'a> {
     method: SipMethod<'a>,
     headers: Vec<SipHeader<'a>>,
+    content: Vec<&'a str>,
 }
 
 //Simple header parsing
@@ -319,7 +320,13 @@ named!(
                     >> opt!(tag!("\r\n"))
                     >> (i)
             ), tag!("\r\n"))
-            >> (SipMessage{method, headers: headers.0})
+        >> content: many_till!(
+            do_parse!(
+                i: take_till!(call!(is_any_of, b"\r\n"))
+                    >> opt!(tag!("\r\n"))
+                    >> (to_str_default(i))
+            ), tag!("\r\n"))
+        >> (SipMessage{method, headers: headers.0, content: content.0})
     )
 );
 
@@ -358,14 +365,14 @@ pub fn just_test() {
 fn test_parse(data: &[u8]) {
     let res = parse_sip_message(data);
     match res {
-        Ok(_) => {
-            /*
-println!(
-            "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
-            str::from_utf8(remaining).unwrap_or_default(),
-            header
-        ),
-   */
+        Ok((_remaining, _msg)) => {
+            /*if !msg.content.is_empty() {
+                println!(
+                    "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
+                    str::from_utf8(remaining).unwrap_or_default(),
+                    msg
+                );
+            }*/
         }
         Err(e) => if let nom::Err::Error(c) = e {
             match c {
