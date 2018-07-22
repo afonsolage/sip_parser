@@ -291,7 +291,7 @@ println!(
             match c {
                 nom::Context::Code(b, d) => {
                     println!(
-                        "#################### Failed to parse. ###################\r\nError at {0:#?}. Remaining:\r\n{1}Original:\r\n{2}",
+                        "#################### FAILED TO PARSE!. ###################\r\nError at {0:#?}\r\n -- Remaining: --\r\n{1} -- Original: --\r\n{2}",
                         d,
                         to_str_dbg(b),
                         to_str_dbg(data),
