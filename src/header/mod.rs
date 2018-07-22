@@ -40,6 +40,11 @@ pub enum SipHeader<'a> {
         seq: u32,
         header: &'a str,
     },
+
+    Unknown {
+        name: &'a str,
+        value: &'a str,
+    },
 }
 
 #[derive(PartialEq, Debug)]
@@ -274,8 +279,9 @@ named!(
 named!(
     parse_sip_header<SipHeader>,
     do_parse!(
-        header:
-            complete!(switch!(take_until_and_consume!(":"),
+        take_while!(nom::is_space) >> name: take_until_and_consume!(":")
+            >> header:
+                complete!(switch!(value!(name),
                               b"Contact" => call!(parse_contact_header)
                               | b"To" => call!(parse_to_header)
                               | b"From" => call!(parse_from_header)
@@ -301,6 +307,10 @@ named!(
                               | b"Require" => call!(parse_require_header)
                               | b"Accept-Language" => call!(parse_accept_language_header)
                               | b"Min-SE" => call!(parse_min_se_header)
+                              | _ => do_parse!(
+                                  value: parse_str_line
+                                      >> (SipHeader::Unknown{name: to_str_default(name), value})
+                              )
             )) >> (header)
     )
 );
