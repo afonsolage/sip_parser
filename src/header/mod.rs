@@ -281,6 +281,22 @@ named!(
     )
 );
 
+named!(
+    parse_sip_response<SipMethod>,
+    do_parse!(
+        version: parse_str
+            >> tag!(" ")
+            >> code: parse_u32
+            >> tag!(" ")
+            >> reason: parse_str_line
+            >> tag!("\r\n") >> (SipMethod::Response {
+            version,
+            code,
+            reason,
+        })
+    )
+);
+
 //General header parsing
 named!(
     parse_sip_header<SipHeader>,
@@ -324,7 +340,7 @@ named!(
 named!(
     pub parse_sip_message<SipMessage>,
     do_parse!(
-        method: parse_sip_request
+        method: alt!(parse_sip_response | parse_sip_request)
         >> headers: many_till!(
             do_parse!(
                 i: parse_sip_header
@@ -377,13 +393,18 @@ fn test_parse(data: &[u8]) {
     let res = parse_sip_message(data);
     match res {
         Ok((_remaining, _msg)) => {
-            /*if !msg.content.is_empty() {
+            if let SipMethod::Unknown {
+                method: _,
+                uri: _,
+                version: _,
+            } = &_msg.method
+            {
                 println!(
-                    "res:\r\n{0}\r\nInfo:\r\n{1:#?}",
-                    str::from_utf8(remaining).unwrap_or_default(),
-                    msg
+                    "res:\r\n{0}\r\nInfo:\r\n{1:?}",
+                    str::from_utf8(_remaining).unwrap_or_default(),
+                    _msg
                 );
-            }*/
+            }
         }
         Err(e) => if let nom::Err::Error(c) = e {
             match c {
