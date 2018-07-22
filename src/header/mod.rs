@@ -26,10 +26,14 @@ pub enum SipHeader<'a> {
     Server(&'a str),
     Date(&'a str),
     ContentType(&'a str),
-    SessionExpires(&'a str),
     Require(Vec<&'a str>),
     AcceptLanguage(&'a str),
-    MinSE(&'a str),
+
+    MinSE(u32), //Minimum value for Session-Expires
+    SessionExpires {
+        value: u32,
+        params: Params<'a>,
+    },
 
     Via {
         protocol: &'a str,
@@ -174,7 +178,9 @@ named!(
 
 named!(
     parse_session_expires_header<SipHeader>,
-    do_parse!(s: take_until!("\r\n") >> (SipHeader::SessionExpires(to_str(s).unwrap_or_default())))
+    do_parse!(
+        value: parse_u32 >> params: parse_params >> (SipHeader::SessionExpires { value, params })
+    )
 );
 
 named!(
@@ -184,7 +190,7 @@ named!(
 
 named!(
     parse_min_se_header<SipHeader>,
-    do_parse!(s: take_until!("\r\n") >> (SipHeader::MinSE(to_str(s).unwrap_or_default())))
+    do_parse!(u: parse_u32 >> (SipHeader::MinSE(u)))
 );
 
 named!(
