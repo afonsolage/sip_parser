@@ -4,6 +4,10 @@ mod types;
 pub use self::types::*;
 
 use super::*;
+use std::fmt;
+use std::io::Read;
+
+type SipResult<T> = Result<T, MessageParserError>;
 
 #[derive(PartialEq, Debug)]
 pub enum SipHeader<'a> {
@@ -112,13 +116,155 @@ impl<'a> SipMethod<'a> {
     }
 }
 
-#[derive(PartialEq, Debug)]
-pub struct SipMessage<'a> {
-    method: SipMethod<'a>,
-    headers: Vec<SipHeader<'a>>,
-    content: Vec<&'a str>,
+#[derive(Debug, Fail)]
+enum MessageParserError {
+    #[fail(
+        display = "Error at parsing near: {}. Remaining: {1}",
+        detail,
+        remaining
+    )]
+    Parse { detail: String, remaining: String },
+
+    #[fail(display = "IO Error: {}", error)]
+    IO { error: std::io::Error },
+
+    #[fail(display = "EOF Reached!")]
+    EOF,
 }
 
+impl From<std::io::Error> for MessageParserError {
+    fn from(error: std::io::Error) -> Self {
+        MessageParserError::IO { error }
+    }
+}
+
+impl<'a> From<nom::Err<&'a [u8]>> for MessageParserError {
+    fn from(error: nom::Err<&'a [u8]>) -> Self {
+        if let nom::Err::Error(c) = error {
+            match c {
+                nom::Context::Code(remaining, detail) => MessageParserError::Parse {
+                    remaining: to_str_default(remaining).to_string(),
+                    detail: detail.description().to_string(),
+                },
+            }
+        } else {
+            MessageParserError::Parse {
+                detail: String::from("Unkown Error"),
+                remaining: String::from(""),
+            }
+        }
+    }
+}
+
+pub struct SipMessage<'a> {
+    buffer: Vec<u8>,
+    pub method: SipMethod<'a>,
+    pub headers: Vec<SipHeader<'a>>,
+    pub content: Vec<&'a str>,
+}
+
+impl<'a> SipMessage<'a> {
+    /*    fn new(data: &[u8]) -> Self {
+        let buffer = data.to_vec();
+        let method = 
+    }*/
+}
+
+impl<'a> fmt::Debug for SipMessage<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "SipMessage {{ method: {0:#?}, headers: {1:#?}, content: {2:#?} }}",
+            self.method, self.headers, self.content
+        )
+    }
+}
+
+impl<'a> fmt::Display for SipMessage<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "SipMessage {{ method: {0:?}, headers: {1:?}, content: {2:?} }}",
+            self.method, self.headers, self.content
+        )
+    }
+}
+/*
+struct MessageParser<'a, R: 'a> {
+    buffer: [u8; 1024],
+    index: usize,
+    bytes: std::io::Bytes<R>,
+    _p: std::marker::PhantomData<&'a R>, //Need to use a phantomdata, since we need a life time to return SipMessages
+}
+
+impl<'a, R: Read> MessageParser<'a, R> {
+    fn new(stream: R) -> MessageParser<'a, R> {
+        MessageParser {
+            buffer: [0; 1024],
+            index: 0,
+            bytes: stream.bytes(),
+            _p: std::marker::PhantomData,
+        }
+    }
+
+    fn read_until(&mut self, delim: &[u8]) -> SipResult<usize> {
+        let mut read_count = 0;
+
+        while let Some(byte) = self.bytes.next() {
+            self.buffer[self.index] = byte?;
+            self.index += 1;
+            read_count += 1;
+
+            if read_count > delim.len() {
+                let len = delim.len();
+                if delim == &self.buffer[self.index - len..len] {
+                    return Ok(read_count);
+                }
+            }
+        }
+
+        Err(MessageParserError::EOF)
+    }
+
+    fn read_method(&mut self) -> SipResult<SipMethod<'a>> {
+        let rc = self.read_until(b"\r\n")?;
+
+        let res = parse_sip_method(&self.buffer[self.index..rc])?;
+
+        self.index += rc;
+        Ok(res.1)
+    }
+
+    fn read_headers(&'a mut self) -> SipResult<Vec<SipHeader<'a>>> {
+        let rc = self.read_until(b"\r\n\r\n")?;
+
+        let res = parse_sip_headers(&self.buffer[self.index..rc])?;
+
+        self.index += rc;
+        Ok(res.1)
+    }
+}
+
+impl<'a, R: Read> MessageParser<'a, R> {
+    fn get_next(&'a mut self) -> SipResult<SipMessage<'a>> {
+        self.index = 0;
+
+        let method = self.read_method()?;
+
+        let headers = self.read_headers()?;
+
+        Err(MessageParserError::EOF)
+    }
+}
+
+impl<'a, R> Iterator for MessageParser<'a, R> {
+    type Item = SipMessage<'a>;
+
+    fn next(&mut self) -> Option<SipMessage<'a>> {
+        None
+    }
+}
+*/
 //Simple header parsing
 
 named!(
@@ -271,6 +417,11 @@ named!(
 
 //Method parsing
 named!(
+    parse_sip_method<SipMethod>,
+    alt_complete!(parse_sip_response | parse_sip_request)
+);
+
+named!(
     parse_sip_request<SipMethod>,
     do_parse!(
         m: complete!(take_until_and_consume!(" "))
@@ -338,26 +489,22 @@ named!(
 );
 
 named!(
-    pub parse_sip_message<SipMessage>,
+    parse_sip_headers<Vec<SipHeader>>,
     do_parse!(
-        method: alt!(parse_sip_response | parse_sip_request)
-        >> headers: many_till!(
-            do_parse!(
-                i: parse_sip_header
-                    >> opt!(tag!("\r\n"))
-                    >> (i)
-            ), tag!("\r\n"))
-        >> content: many_till!(
-            do_parse!(
-                i: take_till!(call!(is_any_of, b"\r\n"))
-                    >> opt!(tag!("\r\n"))
-                    >> (to_str_default(i))
-            ), tag!("\r\n"))
-        >> (SipMessage{method, headers: headers.0, content: content.0})
+        h: many_till!(
+            do_parse!(i: parse_sip_header >> opt!(tag!("\r\n")) >> (i)),
+            tag!("\r\n")
+        ) >> (h.0)
     )
 );
 
+/*
 pub fn just_test() {
+    //    test_message();
+    test_messages();
+}
+
+fn test_messages() {
     use std::fs::File;
     use std::io::{BufReader, Read};
 
@@ -422,7 +569,8 @@ fn test_parse(data: &[u8]) {
         },
     }
 }
-/*
+
+fn test_message() {
     let res = parse_sip_message(
         b"SUBSCRIBE sip:3006@192.168.11.223;transport=UDP SIP/2.0\r\n\
           Contact: <sip:3006@192.168.10.135:5060;transport=UDP>\r\n\
@@ -440,8 +588,7 @@ fn test_parse(data: &[u8]) {
           Event: message-summary\r\n\
           Allow-Events: presence, kpml\r\n\
           Content-Length: 0\r\n\
-          Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n\
-          \r\n\r\n",
+          Via: SIP/2.0/UDP 192.168.10.135:5060;branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n",
     );
     match res {
         Ok((remaining, header)) => println!(
@@ -460,6 +607,8 @@ fn test_parse(data: &[u8]) {
                 }
             }
         } else {
-            println!("Unkown error")
+            println!("Unkown error: {}", e);
         },
-    }*/
+    }
+}
+*/
