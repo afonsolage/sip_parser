@@ -38,7 +38,7 @@ pub struct URI<'a> {
     protocol: &'a str,
     extension: &'a str,
     domain: Option<&'a str>,
-    port: Option<&'a str>, //TODO: Convert this to u16
+    port: Option<u32>,
     params: Params<'a>,
 }
 
@@ -49,14 +49,14 @@ named!(
             >> protocol: take_until_and_consume!(":")
             >> extension: take_until_either!("@>;\r\n")
             >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
-            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
+            >> port: opt!(preceded!(tag!(":"), parse_u32))
             >> params: call!(parse_params)
             >> tag!(">")
             >> (URI{
                 protocol: to_str_default(protocol),
                 extension: to_str_default(extension),
                 domain: domain.and_then(to_str),
-                port: port.and_then(to_str),
+                port,
                 params,
             })
     )
@@ -68,12 +68,12 @@ named!(
         protocol: take_until_and_consume!(":")
             >> extension: take_until_either!("@>;\r\n")
             >> domain: opt!(preceded!(tag!("@"), take_till!(is_reserved_char)))
-            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
+            >> port: opt!(preceded!(tag!(":"), parse_u32))
             >> (URI {
                 protocol: to_str_default(protocol),
                 extension: to_str_default(extension),
                 domain: domain.and_then(to_str),
-                port: port.and_then(to_str),
+                port,
                 params: vec![],
             })
     )
@@ -86,14 +86,14 @@ named!(
             >> protocol: take_until_and_consume!(":")
             >> extension: take_until_either!("@>;\r\n")
             >> domain: opt!(preceded!(tag!("@"), take_until_either!(":>;\r\n")))
-            >> port: opt!(preceded!(tag!(":"), take_while!(nom::is_digit)))
+            >> port: opt!(preceded!(tag!(":"), parse_u32))
             >> params: call!(parse_params)
             >> opt!(tag!(">"))
             >> (URI{
                 protocol: to_str_default(protocol),
                 extension: to_str_default(extension),
                 domain: domain.and_then(to_str),
-                port: port.and_then(to_str),
+                port,
                 params,
             })
     )
@@ -173,25 +173,6 @@ named!(
             >> ( list.0 )
     )
 );
-
-//#[derive(PartialEq, Debug)]
-//pub struct PairValue<'a> {
-//    pub first: StrValue<'a>,
-//    pub second: StrValue<'a>,
-//    pub params: Params<'a>,
-//}
-//
-//named!(
-//    pub parse_sp_pair<PairValue>,
-//    do_parse!(
-//        take_while!(is_space)
-//            >> first: parse_str
-//            >> tag!(" ")
-//            >> second: parse_str
-//            >> params: parse_params
-//            >> (PairValue{first, second, params})
-//    )
-//);
 
 #[cfg(test)]
 mod tests {
@@ -333,7 +314,7 @@ mod tests {
                         protocol: "sip",
                         extension: "9989898919",
                         domain: Some("127.0.0.1"),
-                        port: Some("35436"),
+                        port: Some(35436),
                         params: vec!["transport=UDP"]
                     },
                     params: vec!["tag=asdasdasdasd", "some=nice"],
@@ -396,7 +377,7 @@ mod tests {
                         protocol: "sips",
                         extension: "mark",
                         domain: Some("localhost"),
-                        port: Some("3342"),
+                        port: Some(3342),
                         params: vec![],
                     },
                     params: vec![],
@@ -459,7 +440,7 @@ mod tests {
                         protocol: "sip",
                         extension: "asd",
                         domain: Some("dsds"),
-                        port: Some("33"),
+                        port: Some(33),
                         params: vec!["transport=333"],
                     },
                     params: vec!["tag=aasdasd"],
@@ -480,7 +461,7 @@ mod tests {
                         protocol: "sip",
                         extension: "ddd",
                         domain: Some("aaa"),
-                        port: Some("1111"),
+                        port: Some(1111),
                         params: vec!["transport=UDP"],
                     },
                     params: vec![],
@@ -522,7 +503,7 @@ mod tests {
                         protocol: "sip",
                         extension: "afonso",
                         domain: Some("lage"),
-                        port: Some("443"),
+                        port: Some(443),
                         params: vec![],
                     },
                     params: vec!["tag=d2d2"],
