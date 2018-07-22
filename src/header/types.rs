@@ -12,7 +12,7 @@ named!(
                 p: take_while!(call!(is_not_reserved_char_except, b"="))
                     >> opt!(tag!(";"))
                     >> (p)
-            ), peek!(one_of!("()<>@,:;\\/[]?= \t\r\n")))))
+            ), peek!(one_of!("()<>@,:;\\/?= \t\r\n")))))
         >> (params.unwrap_or_default().0.into_iter().filter_map(to_str).collect())
     )
 );

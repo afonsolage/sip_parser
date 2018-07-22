@@ -20,6 +20,16 @@ pub enum SipHeader<'a> {
     Allow(StrList<'a>),
     AllowEvents(StrList<'a>),
     Supported(StrList<'a>),
+    Authorization(StrList<'a>),
+    WWWAuthenticate(StrList<'a>),
+    SessionID(&'a str),
+    Server(&'a str),
+    Date(&'a str),
+    ContentType(&'a str),
+    SessionExpires(&'a str),
+    Require(StrList<'a>),
+    AcceptLanguage(&'a str),
+    MinSE(&'a str),
 
     Via {
         protocol: &'a str,
@@ -117,6 +127,11 @@ named!(
 );
 
 named!(
+    parse_require_header<SipHeader>,
+    do_parse!(list: parse_str_list >> (SipHeader::Require(list)))
+);
+
+named!(
     parse_call_id_header<SipHeader>,
     do_parse!(s: parse_str >> (SipHeader::CallID(s)))
 );
@@ -129,6 +144,41 @@ named!(
 named!(
     parse_user_agent_header<SipHeader>,
     do_parse!(s: take_until!("\r\n") >> (SipHeader::UserAgent(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_session_id_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::SessionID(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_server_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::Server(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_date_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::Date(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_content_type_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::ContentType(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_session_expires_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::SessionExpires(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_accept_language_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::AcceptLanguage(to_str(s).unwrap_or_default())))
+);
+
+named!(
+    parse_min_se_header<SipHeader>,
+    do_parse!(s: take_until!("\r\n") >> (SipHeader::MinSE(to_str(s).unwrap_or_default())))
 );
 
 named!(
@@ -192,6 +242,26 @@ named!(
     )
 );
 
+named!(
+    parse_authorization_header<SipHeader>,
+    do_parse!(
+        opt!(take_while!(nom::is_space))
+            >> tag!("Digest ")
+            >> l: parse_str_list
+            >> (SipHeader::Authorization(l))
+    )
+);
+
+named!(
+    parse_www_authenticate_header<SipHeader>,
+    do_parse!(
+        opt!(take_while!(nom::is_space))
+            >> tag!("Digest ")
+            >> l: parse_str_list
+            >> (SipHeader::WWWAuthenticate(l))
+    )
+);
+
 //Method parsing
 named!(
     parse_sip_request<SipMethod>,
@@ -224,7 +294,17 @@ named!(
                               | b"Allow" => call!(parse_allow_header)
                               | b"Allow-Events" => call!(parse_allow_events_header)
                               | b"Via" => call!(parse_via_header)
-                              | b"Supported" => call!(parse_supported_header)               
+                              | b"Supported" => call!(parse_supported_header)
+                              | b"Authorization" => call!(parse_authorization_header)
+                              | b"Session-ID" => call!(parse_session_id_header)
+                              | b"Server" => call!(parse_server_header)
+                              | b"WWW-Authenticate" => call!(parse_www_authenticate_header)
+                              | b"Date" => call!(parse_date_header)
+                              | b"Content-Type" => call!(parse_content_type_header)
+                              | b"Session-Expires" => call!(parse_session_expires_header)
+                              | b"Require" => call!(parse_require_header)
+                              | b"Accept-Language" => call!(parse_accept_language_header)
+                              | b"Min-SE" => call!(parse_min_se_header)
             )) >> (header)
     )
 );
@@ -238,7 +318,7 @@ named!(
                 i: parse_sip_header
                     >> opt!(tag!("\r\n"))
                     >> (i)
-            ), tag!("\r\n\r\n"))
+            ), tag!("\r\n"))
             >> (SipMessage{method, headers: headers.0})
     )
 );

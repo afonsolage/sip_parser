@@ -7,7 +7,7 @@ pub use header::*;
 use std::str;
 
 pub fn is_reserved_char_except(c: u8, except: &[u8]) -> bool {
-    !except.contains(&c) && b"()<>@,:;\\/[]?= \t\r\n".contains(&c)
+    !except.contains(&c) && b"()<>@,:;\\/?= \t\r\n".contains(&c)
 }
 
 pub fn is_not_reserved_char_except(c: u8, exception: &[u8]) -> bool {
