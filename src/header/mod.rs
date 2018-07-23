@@ -157,7 +157,6 @@ impl<'a> From<nom::Err<&'a [u8]>> for MessageParserError {
 }
 
 pub struct SipMessage<'a> {
-    buffer: Vec<u8>,
     pub method: SipMethod<'a>,
     pub headers: Vec<SipHeader<'a>>,
     pub content: Vec<&'a str>,
@@ -189,35 +188,34 @@ impl<'a> fmt::Display for SipMessage<'a> {
         )
     }
 }
-/*
-struct MessageParser<'a, R: 'a> {
-    buffer: [u8; 1024],
-    index: usize,
+
+struct MessageParser<'a, R> {
+    h_buf: Vec<u8>,
     bytes: std::io::Bytes<R>,
-    _p: std::marker::PhantomData<&'a R>, //Need to use a phantomdata, since we need a life time to return SipMessages
+    msg: Option<SipMessage<'a>>,
 }
 
 impl<'a, R: Read> MessageParser<'a, R> {
     fn new(stream: R) -> MessageParser<'a, R> {
         MessageParser {
-            buffer: [0; 1024],
-            index: 0,
+            h_buf: vec![],
             bytes: stream.bytes(),
-            _p: std::marker::PhantomData,
+            msg: None,
         }
     }
 
-    fn read_until(&mut self, delim: &[u8]) -> SipResult<usize> {
+    fn read_until(&mut self, index: usize, delim: &[u8]) -> SipResult<usize> {
         let mut read_count = 0;
 
+        let mut i = index;
         while let Some(byte) = self.bytes.next() {
-            self.buffer[self.index] = byte?;
-            self.index += 1;
+            self.h_buf[i] = byte?;
             read_count += 1;
+            i += 1;
 
             if read_count > delim.len() {
                 let len = delim.len();
-                if delim == &self.buffer[self.index - len..len] {
+                if delim == &self.h_buf[i - len..i] {
                     return Ok(read_count);
                 }
             }
@@ -226,28 +224,36 @@ impl<'a, R: Read> MessageParser<'a, R> {
         Err(MessageParserError::EOF)
     }
 
-    fn read_method(&mut self) -> SipResult<SipMethod<'a>> {
-        let rc = self.read_until(b"\r\n")?;
+    fn read_method(&'a mut self) -> SipResult<usize> {
+        let rc = self.read_until(0, b"\r\n")?;
 
-        let res = parse_sip_method(&self.buffer[self.index..rc])?;
+        let res = parse_sip_method(&self.h_buf[0..rc])?;
 
-        self.index += rc;
-        Ok(res.1)
+        self.msg = Some(SipMessage {
+            method: res.1,
+            headers: vec![],
+            content: vec![],
+        });
+
+        Ok(rc)
     }
 
-    fn read_headers(&'a mut self) -> SipResult<Vec<SipHeader<'a>>> {
-        let rc = self.read_until(b"\r\n\r\n")?;
+    fn read_headers(&mut self) -> SipResult<usize> {
+        let rc = self.read_until(0, b"\r\n\r\n")?;
 
-        let res = parse_sip_headers(&self.buffer[self.index..rc])?;
+        let res = parse_sip_headers(&self.h_buf[0..rc])?;
 
-        self.index += rc;
-        Ok(res.1)
+        if let Some(ref mut msg) = self.msg {
+            msg.headers = res.1;
+        }
+
+        Ok(rc)
     }
 }
 
 impl<'a, R: Read> MessageParser<'a, R> {
     fn get_next(&'a mut self) -> SipResult<SipMessage<'a>> {
-        self.index = 0;
+        let index = 0;
 
         let method = self.read_method()?;
 
@@ -264,7 +270,7 @@ impl<'a, R> Iterator for MessageParser<'a, R> {
         None
     }
 }
-*/
+
 //Simple header parsing
 
 named!(
