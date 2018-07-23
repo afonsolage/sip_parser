@@ -2,7 +2,7 @@ use super::*;
 use std::str;
 
 //TODO: Convert this to a tuple?
-pub type Params<'a> = Vec<&'a str>;
+pub type Params = Vec<String>;
 
 named!(
     pub parse_params<Params>,
@@ -18,8 +18,8 @@ named!(
 );
 
 #[derive(PartialEq, Debug)]
-pub struct SockAddr<'a> {
-    addr: &'a str,
+pub struct SockAddr {
+    addr: String,
     port: u32,
 }
 
@@ -34,12 +34,12 @@ named!(
 );
 
 #[derive(PartialEq, Debug)]
-pub struct URI<'a> {
-    protocol: &'a str,
-    extension: &'a str,
-    domain: Option<&'a str>,
+pub struct URI {
+    protocol: String,
+    extension: String,
+    domain: Option<String>,
     port: Option<u32>,
-    params: Params<'a>,
+    params: Params,
 }
 
 named!(
@@ -100,10 +100,10 @@ named!(
 );
 
 #[derive(PartialEq, Debug)]
-pub struct ContactInfo<'a> {
-    alias: Option<&'a str>,
-    uri: URI<'a>,
-    params: Params<'a>,
+pub struct ContactInfo {
+    alias: Option<String>,
+    uri: URI,
+    params: Params,
 }
 
 named!(
@@ -138,7 +138,7 @@ named!(
 );
 
 named!(
-    pub parse_str<&str>,
+    pub parse_str<String>,
     do_parse!(
         take_while!(is_space)
             >> s: complete!(
@@ -152,7 +152,7 @@ named!(
 );
 
 named!(
-    pub parse_str_line<&str>,
+    pub parse_str_line<String>,
     do_parse!(
         take_while!(is_space)
             >> s: take_until!("\r\n")
@@ -161,7 +161,7 @@ named!(
 );
 
 named!(
-    pub parse_str_list<Vec<&str>>,
+    pub parse_str_list<Vec<String>>,
     do_parse!(
         take_while!(is_space)
             >> list: many_till!(
@@ -186,7 +186,7 @@ mod tests {
             Ok((
                 b"\r\n" as &[u8],
                 SockAddr {
-                    addr: "192.168.0.1",
+                    addr: "192.168.0.1".to_owned(),
                     port: 4444
                 }
             ))
@@ -200,7 +200,7 @@ mod tests {
             Ok((
                 b";tag=some-thing\r\n" as &[u8],
                 SockAddr {
-                    addr: "192.168.0.1",
+                    addr: "192.168.0.1".to_owned(),
                     port: 4444
                 }
             ))
@@ -212,7 +212,10 @@ mod tests {
     fn params() {
         assert_eq!(
             parse_params(b";tag=a;another=afonso\r\n"),
-            Ok((b"\r\n" as &[u8], vec!["tag=a", "another=afonso"]))
+            Ok((
+                b"\r\n" as &[u8],
+                vec!["tag=a".to_owned(), "another=afonso".to_owned()]
+            ))
         );
     }
 
@@ -222,7 +225,7 @@ mod tests {
             parse_params(b";branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-\r\n"),
             Ok((
                 b"\r\n" as &[u8],
-                vec!["branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-"]
+                vec!["branch=z9hG4bK-d8754z-05751188cc710991-1---d8754z-".to_owned()]
             ))
         )
     }
@@ -242,16 +245,16 @@ mod tests {
             Ok((
                 b"\r\n" as &[u8],
                 vec![
-                    "INVITE",
-                    "ACK",
-                    "CANCEL",
-                    "BYE",
-                    "NOTIFY",
-                    "REFER",
-                    "MESSAGE",
-                    "OPTIONS",
-                    "INFO",
-                    "SUBSCRIBE",
+                    "INVITE".to_owned(),
+                    "ACK".to_owned(),
+                    "CANCEL".to_owned(),
+                    "BYE".to_owned(),
+                    "NOTIFY".to_owned(),
+                    "REFER".to_owned(),
+                    "MESSAGE".to_owned(),
+                    "OPTIONS".to_owned(),
+                    "INFO".to_owned(),
+                    "SUBSCRIBE".to_owned(),
                 ],
             ))
         );
@@ -262,7 +265,7 @@ mod tests {
     fn strvalue_comma() {
         assert_eq!(
             parse_str(b"some,thing\r\n"),
-            Ok((b",thing\r\n" as &[u8], "some"))
+            Ok((b",thing\r\n" as &[u8], "some".to_owned()))
         );
     }
 
@@ -272,7 +275,7 @@ mod tests {
             parse_str(b"   MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.;tag=some\r\n"),
             Ok((
                 b";tag=some\r\n" as &[u8],
-                "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA."
+                "MDhkMTcxYjYwNzEzMjhjZWUyZDE0OTY5NGNmZjA3YzA.".to_owned()
             ))
         );
     }
@@ -283,7 +286,7 @@ mod tests {
             parse_str(b"MDhkMTcxYjYwNzEzMjhjZWUy ZDE0OTY5NGNmZjA3YzA.\r\n"),
             Ok((
                 b" ZDE0OTY5NGNmZjA3YzA.\r\n" as &[u8],
-                "MDhkMTcxYjYwNzEzMjhjZWUy"
+                "MDhkMTcxYjYwNzEzMjhjZWUy".to_owned()
             ))
         );
     }
@@ -309,15 +312,15 @@ mod tests {
             Ok((
                 b"\r\n" as &[u8],
                 ContactInfo {
-                    alias: Some("Alice Mark"),
+                    alias: Some("Alice Mark".to_owned()),
                     uri: URI {
-                        protocol: "sip",
-                        extension: "9989898919",
-                        domain: Some("127.0.0.1"),
+                        protocol: "sip".to_owned(),
+                        extension: "9989898919".to_owned(),
+                        domain: Some("127.0.0.1".to_owned()),
                         port: Some(35436),
-                        params: vec!["transport=UDP"]
+                        params: vec!["transport=UDP".to_owned()]
                     },
-                    params: vec!["tag=asdasdasdasd", "some=nice"],
+                    params: vec!["tag=asdasdasdasd".to_owned(), "some=nice".to_owned()],
                 }
             ))
         );
@@ -332,9 +335,9 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sip",
-                        extension: "85999684700",
-                        domain: Some("localhost"),
+                        protocol: "sip".to_owned(),
+                        extension: "85999684700".to_owned(),
+                        domain: Some("localhost".to_owned()),
                         port: None,
                         params: vec![],
                     },
@@ -353,8 +356,8 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "tel",
-                        extension: "+5585999680047",
+                        protocol: "tel".to_owned(),
+                        extension: "+5585999680047".to_owned(),
                         domain: None,
                         port: None,
                         params: vec![],
@@ -374,9 +377,9 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sips",
-                        extension: "mark",
-                        domain: Some("localhost"),
+                        protocol: "sips".to_owned(),
+                        extension: "mark".to_owned(),
+                        domain: Some("localhost".to_owned()),
                         port: Some(3342),
                         params: vec![],
                     },
@@ -395,9 +398,9 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sip",
-                        extension: "8882",
-                        domain: Some("127.0.0.1"),
+                        protocol: "sip".to_owned(),
+                        extension: "8882".to_owned(),
+                        domain: Some("127.0.0.1".to_owned()),
                         port: None,
                         params: vec![],
                     },
@@ -416,13 +419,13 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sip",
-                        extension: "admin",
-                        domain: Some("localhost"),
+                        protocol: "sip".to_owned(),
+                        extension: "admin".to_owned(),
+                        domain: Some("localhost".to_owned()),
                         port: None,
                         params: vec![],
                     },
-                    params: vec!["tag=38298391"],
+                    params: vec!["tag=38298391".to_owned()],
                 }
             ))
         );
@@ -435,15 +438,15 @@ mod tests {
             Ok((
                 b"\r\n" as &[u8],
                 ContactInfo {
-                    alias: Some("Alisson Bae"),
+                    alias: Some("Alisson Bae".to_owned()),
                     uri: URI {
-                        protocol: "sip",
-                        extension: "asd",
-                        domain: Some("dsds"),
+                        protocol: "sip".to_owned(),
+                        extension: "asd".to_owned(),
+                        domain: Some("dsds".to_owned()),
                         port: Some(33),
-                        params: vec!["transport=333"],
+                        params: vec!["transport=333".to_owned()],
                     },
-                    params: vec!["tag=aasdasd"],
+                    params: vec!["tag=aasdasd".to_owned()],
                 }
             ))
         );
@@ -458,11 +461,11 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sip",
-                        extension: "ddd",
-                        domain: Some("aaa"),
+                        protocol: "sip".to_owned(),
+                        extension: "ddd".to_owned(),
+                        domain: Some("aaa".to_owned()),
                         port: Some(1111),
-                        params: vec!["transport=UDP"],
+                        params: vec!["transport=UDP".to_owned()],
                     },
                     params: vec![],
                 }
@@ -479,13 +482,13 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sip",
-                        extension: "afonso",
-                        domain: Some("lage"),
+                        protocol: "sip".to_owned(),
+                        extension: "afonso".to_owned(),
+                        domain: Some("lage".to_owned()),
                         port: None,
                         params: vec![],
                     },
-                    params: vec!["tag=d2d2"],
+                    params: vec!["tag=d2d2".to_owned()],
                 }
             ))
         );
@@ -500,13 +503,13 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "sip",
-                        extension: "afonso",
-                        domain: Some("lage"),
+                        protocol: "sip".to_owned(),
+                        extension: "afonso".to_owned(),
+                        domain: Some("lage".to_owned()),
                         port: Some(443),
                         params: vec![],
                     },
-                    params: vec!["tag=d2d2"],
+                    params: vec!["tag=d2d2".to_owned()],
                 }
             ))
         );
@@ -521,13 +524,13 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "tel",
-                        extension: "+5585999680047",
+                        protocol: "tel".to_owned(),
+                        extension: "+5585999680047".to_owned(),
                         domain: None,
                         port: None,
                         params: vec![],
                     },
-                    params: vec!["tag=d2d2"],
+                    params: vec!["tag=d2d2".to_owned()],
                 }
             ))
         );
@@ -542,11 +545,11 @@ mod tests {
                 ContactInfo {
                     alias: None,
                     uri: URI {
-                        protocol: "tel",
-                        extension: "190",
+                        protocol: "tel".to_owned(),
+                        extension: "190".to_owned(),
                         domain: None,
                         port: None,
-                        params: vec!["type=emergency"],
+                        params: vec!["type=emergency".to_owned()],
                     },
                     params: vec![],
                 }

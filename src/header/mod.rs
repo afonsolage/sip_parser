@@ -10,96 +10,96 @@ use std::io::Read;
 type SipResult<T> = Result<T, MessageParserError>;
 
 #[derive(PartialEq, Debug)]
-pub enum SipHeader<'a> {
-    Contact(ContactInfo<'a>),
-    To(ContactInfo<'a>),
-    From(ContactInfo<'a>),
+pub enum SipHeader {
+    Contact(ContactInfo),
+    To(ContactInfo),
+    From(ContactInfo),
     Expires(u32),
     MaxForwards(u32),
     ContentLength(u32),
-    CallID(&'a str),
-    Accept(&'a str),
-    UserAgent(&'a str),
-    Event(&'a str),
-    Allow(Vec<&'a str>),
-    AllowEvents(Vec<&'a str>),
-    Supported(Vec<&'a str>),
-    Authorization(Vec<&'a str>),
-    WWWAuthenticate(Vec<&'a str>),
-    SessionID(&'a str),
-    Server(&'a str),
-    Date(&'a str),
-    ContentType(&'a str),
-    Require(Vec<&'a str>),
-    AcceptLanguage(&'a str),
+    CallID(String),
+    Accept(String),
+    UserAgent(String),
+    Event(String),
+    Allow(Vec<String>),
+    AllowEvents(Vec<String>),
+    Supported(Vec<String>),
+    Authorization(Vec<String>),
+    WWWAuthenticate(Vec<String>),
+    SessionID(String),
+    Server(String),
+    Date(String),
+    ContentType(String),
+    Require(Vec<String>),
+    AcceptLanguage(String),
 
     MinSE(u32), //Minimum value for Session-Expires
     SessionExpires {
         value: u32,
-        params: Params<'a>,
+        params: Params,
     },
 
     Via {
-        protocol: &'a str,
-        addr: SockAddr<'a>,
-        params: Params<'a>,
+        protocol: String,
+        addr: SockAddr,
+        params: Params,
     },
     CSeq {
         seq: u32,
-        header: &'a str,
+        header: String,
     },
 
     Unknown {
-        name: &'a str,
-        value: &'a str,
+        name: String,
+        value: String,
     },
 }
 
 #[derive(PartialEq, Debug)]
-pub enum SipMethod<'a> {
+pub enum SipMethod {
     Register {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Invite {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Subscribe {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Ack {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Cancel {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Bye {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Options {
-        uri: URI<'a>,
-        version: &'a str,
+        uri: URI,
+        version: String,
     },
     Response {
-        version: &'a str,
+        version: String,
         code: u32,
-        reason: &'a str,
+        reason: String,
     },
     Unknown {
-        method: &'a str,
-        uri: URI<'a>,
-        version: &'a str,
+        method: String,
+        uri: URI,
+        version: String,
     },
 }
 
-impl<'a> SipMethod<'a> {
-    fn new_req(method: &'a str, uri: URI<'a>, version: &'a str) -> SipMethod<'a> {
-        match method {
+impl SipMethod {
+    fn new_req(method: String, uri: URI, version: String) -> SipMethod {
+        match method.as_ref() {
             "REGISTER" => SipMethod::Register { uri, version },
             "INVITE" => SipMethod::Invite { uri, version },
             "ACK" => SipMethod::Ack { uri, version },
@@ -156,20 +156,20 @@ impl<'a> From<nom::Err<&'a [u8]>> for MessageParserError {
     }
 }
 
-pub struct SipMessage<'a> {
-    pub method: SipMethod<'a>,
-    pub headers: Vec<SipHeader<'a>>,
-    pub content: Vec<&'a str>,
+pub struct SipMessage {
+    pub method: SipMethod,
+    pub headers: Vec<SipHeader>,
+    pub content: Vec<String>,
 }
 
-impl<'a> SipMessage<'a> {
+impl SipMessage {
     /*    fn new(data: &[u8]) -> Self {
         let buffer = data.to_vec();
         let method = 
     }*/
 }
 
-impl<'a> fmt::Debug for SipMessage<'a> {
+impl fmt::Debug for SipMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -179,7 +179,7 @@ impl<'a> fmt::Debug for SipMessage<'a> {
     }
 }
 
-impl<'a> fmt::Display for SipMessage<'a> {
+impl fmt::Display for SipMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -189,14 +189,14 @@ impl<'a> fmt::Display for SipMessage<'a> {
     }
 }
 
-struct MessageParser<'a, R> {
+struct MessageParser<R> {
     h_buf: Vec<u8>,
     bytes: std::io::Bytes<R>,
-    msg: Option<SipMessage<'a>>,
+    msg: Option<SipMessage>,
 }
 
-impl<'a, R: Read> MessageParser<'a, R> {
-    fn new(stream: R) -> MessageParser<'a, R> {
+impl<R: Read> MessageParser<R> {
+    fn new(stream: R) -> MessageParser<R> {
         MessageParser {
             h_buf: vec![],
             bytes: stream.bytes(),
@@ -224,7 +224,7 @@ impl<'a, R: Read> MessageParser<'a, R> {
         Err(MessageParserError::EOF)
     }
 
-    fn read_method(&'a mut self) -> SipResult<usize> {
+    fn read_method(&mut self) -> SipResult<usize> {
         let rc = self.read_until(0, b"\r\n")?;
 
         let res = parse_sip_method(&self.h_buf[0..rc])?;
@@ -251,8 +251,8 @@ impl<'a, R: Read> MessageParser<'a, R> {
     }
 }
 
-impl<'a, R: Read> MessageParser<'a, R> {
-    fn get_next(&'a mut self) -> SipResult<SipMessage<'a>> {
+impl<R: Read> MessageParser<R> {
+    fn get_next(&mut self) -> SipResult<SipMessage> {
         let index = 0;
 
         let method = self.read_method()?;
@@ -263,10 +263,10 @@ impl<'a, R: Read> MessageParser<'a, R> {
     }
 }
 
-impl<'a, R> Iterator for MessageParser<'a, R> {
-    type Item = SipMessage<'a>;
+impl<R> Iterator for MessageParser<R> {
+    type Item = SipMessage;
 
-    fn next(&mut self) -> Option<SipMessage<'a>> {
+    fn next(&mut self) -> Option<SipMessage> {
         None
     }
 }

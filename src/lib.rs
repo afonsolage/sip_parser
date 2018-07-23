@@ -6,8 +6,6 @@ extern crate failure;
 mod header;
 pub use header::*;
 
-use std::str;
-
 pub fn is_reserved_char_except(c: u8, except: &[u8]) -> bool {
     !except.contains(&c) && b"()<>@,:;\\/?= \t\r\n".contains(&c)
 }
@@ -28,14 +26,14 @@ pub fn is_any_of(c: u8, s: &[u8]) -> bool {
     s.contains(&c)
 }
 
-pub fn to_str<'a>(s: &'a [u8]) -> Option<&'a str> {
-    str::from_utf8(s).ok().filter(|s| !s.is_empty())
+pub fn to_str(s: &[u8]) -> Option<String> {
+    String::from_utf8(s.to_vec()).ok().filter(|s| !s.is_empty())
 }
 
-pub fn to_str_default<'a>(s: &'a [u8]) -> &'a str {
+pub fn to_str_default(s: &[u8]) -> String {
     to_str(s).unwrap_or_default()
 }
 
-pub fn to_str_dbg<'a>(data: &'a [u8]) -> String {
+pub fn to_str_dbg(data: &[u8]) -> String {
     to_str_default(data).replace("\r\n", "\\r\\n\r\n")
 }
