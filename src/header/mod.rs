@@ -4,8 +4,10 @@ mod types;
 pub use self::types::*;
 
 use super::*;
+use std::collections::HashMap;
 use std::fmt;
 use std::io::Read;
+use std::iter::{IntoIterator, Iterator};
 
 type SipResult<T> = Result<T, MessageParserError>;
 
@@ -158,15 +160,8 @@ impl<'a> From<nom::Err<&'a [u8]>> for MessageParserError {
 
 pub struct SipMessage {
     pub method: SipMethod,
-    pub headers: Vec<SipHeader>,
+    pub headers: HashMap<String, SipHeader>,
     pub content: Vec<String>,
-}
-
-impl SipMessage {
-    /*    fn new(data: &[u8]) -> Self {
-        let buffer = data.to_vec();
-        let method = 
-    }*/
 }
 
 impl fmt::Debug for SipMessage {
@@ -189,34 +184,47 @@ impl fmt::Display for SipMessage {
     }
 }
 
-struct MessageParser<R> {
-    h_buf: Vec<u8>,
-    bytes: std::io::Bytes<R>,
-    msg: Option<SipMessage>,
+struct MessageParser<R: Read> {
+    bytes: std::iter::Peekable<std::io::Bytes<R>>,
 }
 
 impl<R: Read> MessageParser<R> {
     fn new(stream: R) -> MessageParser<R> {
         MessageParser {
-            h_buf: vec![],
-            bytes: stream.bytes(),
-            msg: None,
+            bytes: stream.bytes().peekable(),
         }
     }
 
-    fn read_until(&mut self, index: usize, delim: &[u8]) -> SipResult<usize> {
-        let mut read_count = 0;
+    fn skip_empty_linebreak(&mut self) -> Option<()> {
+        let mut skip = false;
 
-        let mut i = index;
+        if let Some(byte) = self.bytes.peek() {
+            if let Ok(b) = byte {
+                if *b == b'\r' {
+                    skip = true;
+                }
+            }
+        }
+
+        if skip {
+            self.bytes.next();
+            self.bytes.next();
+        }
+
+        None
+    }
+
+    fn read_until(&mut self, buf: &mut [u8], delim: &[u8]) -> SipResult<usize> {
+        let mut i = 0;
+
         while let Some(byte) = self.bytes.next() {
-            self.h_buf[i] = byte?;
-            read_count += 1;
+            buf[i] = byte?;
             i += 1;
 
-            if read_count > delim.len() {
+            if i > delim.len() {
                 let len = delim.len();
-                if delim == &self.h_buf[i - len..i] {
-                    return Ok(read_count);
+                if delim == &buf[i - len..i] {
+                    return Ok(i);
                 }
             }
         }
@@ -224,50 +232,58 @@ impl<R: Read> MessageParser<R> {
         Err(MessageParserError::EOF)
     }
 
-    fn read_method(&mut self) -> SipResult<usize> {
-        let rc = self.read_until(0, b"\r\n")?;
+    fn read_method(&mut self) -> SipResult<SipMethod> {
+        let mut buf = [0u8; 1024];
+        let rc = self.read_until(&mut buf, b"\r\n")?;
 
-        let res = parse_sip_method(&self.h_buf[0..rc])?;
+        let res = parse_sip_method(&buf[0..rc])?;
 
-        self.msg = Some(SipMessage {
-            method: res.1,
-            headers: vec![],
-            content: vec![],
-        });
-
-        Ok(rc)
+        Ok(res.1)
     }
 
-    fn read_headers(&mut self) -> SipResult<usize> {
-        let rc = self.read_until(0, b"\r\n\r\n")?;
+    fn read_headers(&mut self) -> SipResult<HashMap<String, SipHeader>> {
+        let mut buf = [0u8; 1024];
+        let rc = self.read_until(&mut buf, b"\r\n\r\n")?;
 
-        let res = parse_sip_headers(&self.h_buf[0..rc])?;
+        let res = parse_sip_headers(&buf[0..rc])?;
 
-        if let Some(ref mut msg) = self.msg {
-            msg.headers = res.1;
-        }
-
-        Ok(rc)
+        Ok(res.1)
     }
-}
 
-impl<R: Read> MessageParser<R> {
+    fn read_contents(&mut self) -> SipResult<Vec<String>> {
+        let mut buf = [0u8; 1024];
+        let rc = self.read_until(&mut buf, b"\r\n\r\n")?;
+
+        let res = parse_sip_contents(&buf[0..rc])?;
+
+        Ok(res.1)
+    }
+
     fn get_next(&mut self) -> SipResult<SipMessage> {
-        let index = 0;
+        while let Some(()) = self.skip_empty_linebreak() {}
 
         let method = self.read_method()?;
-
         let headers = self.read_headers()?;
 
-        Err(MessageParserError::EOF)
+        let content = if let Some(SipHeader::ContentLength(_)) = headers.get("Content-Length") {
+            self.read_contents()?
+        } else {
+            vec![]
+        };
+
+        Ok(SipMessage {
+            method,
+            headers,
+            content,
+        })
     }
 }
 
-impl<R> Iterator for MessageParser<R> {
+impl<R: Read> Iterator for MessageParser<R> {
     type Item = SipMessage;
 
     fn next(&mut self) -> Option<SipMessage> {
-        None
+        self.get_next().ok()
     }
 }
 
@@ -456,7 +472,7 @@ named!(
 
 //General header parsing
 named!(
-    parse_sip_header<SipHeader>,
+    parse_sip_header<(String, SipHeader)>,
     do_parse!(
         take_while!(nom::is_space) >> name: take_until_and_consume!(":")
             >> header:
@@ -490,26 +506,55 @@ named!(
                                   value: parse_str_line
                                       >> (SipHeader::Unknown{name: to_str_default(name), value})
                               )
-            )) >> (header)
+            )) >> (String::from_utf8(name.to_vec()).unwrap_or_default(), header)
     )
 );
 
 named!(
-    parse_sip_headers<Vec<SipHeader>>,
+    parse_sip_headers<HashMap<String, SipHeader>>,
     do_parse!(
         h: many_till!(
             do_parse!(i: parse_sip_header >> opt!(tag!("\r\n")) >> (i)),
+            tag!("\r\n")
+        ) >> (h.0.into_iter().collect())
+    )
+);
+
+named!(
+    parse_sip_contents<Vec<String>>,
+    do_parse!(
+        h: many_till!(
+            do_parse!(i: parse_str_line >> opt!(tag!("\r\n")) >> (i)),
             tag!("\r\n")
         ) >> (h.0)
     )
 );
 
-/*
 pub fn just_test() {
     //    test_message();
     test_messages();
 }
 
+fn test_messages() {
+    use std::fs::File;
+
+    let f = File::open("test_data/messages.log").expect("Failed to open messages.log file");
+    let mut parser = MessageParser::new(f);
+
+    let mut last_msg = None;
+
+    loop {
+        match parser.get_next() {
+            Err(e) => {
+                println!("Failed: {0:?}. Last msg:\r\n{1:?}", e, last_msg.unwrap());
+                break;
+            }
+            Ok(msg) => last_msg = Some(msg),
+        }
+    }
+}
+
+/*
 fn test_messages() {
     use std::fs::File;
     use std::io::{BufReader, Read};

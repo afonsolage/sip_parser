@@ -1,5 +1,4 @@
 use super::*;
-use std::str;
 
 //TODO: Convert this to a tuple?
 pub type Params = Vec<String>;
